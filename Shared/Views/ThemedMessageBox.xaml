@@ -1,0 +1,88 @@
+<Window x:Class="SimulatorApp.Shared.Views.ThemedMessageBox"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="提示"
+        Width="400"
+        SizeToContent="Height"
+        MinHeight="140"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="#0F172A"
+        Foreground="#E2E8F0"
+        KeyDown="Window_KeyDown">
+
+    <StackPanel Margin="24,22,24,20">
+
+        <!-- 图标 + 消息 -->
+        <Grid Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 彩色圆形图标 -->
+            <Grid Grid.Column="0" Width="36" Height="36"
+                  Margin="0,0,14,0" VerticalAlignment="Top">
+                <Ellipse x:Name="IconEllipse" Fill="#3B82F6"/>
+                <TextBlock x:Name="IconChar" Text="i"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="White"
+                           FontSize="17" FontWeight="Bold"
+                           FontFamily="Segoe UI, Microsoft YaHei UI"/>
+            </Grid>
+
+            <!-- 消息正文 -->
+            <TextBlock Grid.Column="1"
+                       x:Name="MessageText"
+                       Foreground="#94A3B8"
+                       FontSize="13"
+                       LineHeight="20"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- 确认按钮 -->
+        <Button x:Name="OkButton"
+                Content="确  认"
+                Width="84" Height="30"
+                HorizontalAlignment="Right"
+                Background="#2563EB"
+                Foreground="White"
+                BorderThickness="0"
+                Cursor="Hand"
+                FontSize="13"
+                Click="OkButton_Click">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="Background"   Value="#2563EB"/>
+                    <Setter Property="Foreground"   Value="White"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Cursor"       Value="Hand"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd"
+                                        Background="{TemplateBinding Background}"
+                                        CornerRadius="4"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#1D4ED8"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#1E40AF"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Button.Style>
+        </Button>
+
+    </StackPanel>
+</Window>

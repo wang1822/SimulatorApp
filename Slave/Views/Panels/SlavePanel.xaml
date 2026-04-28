@@ -1,0 +1,517 @@
+﻿<UserControl x:Class="SimulatorApp.Slave.Views.Panels.SlavePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:panels="clr-namespace:SimulatorApp.Slave.Views.Panels"
+             xmlns:conv="clr-namespace:SimulatorApp.Shared.Converters"
+             Background="{StaticResource BackgroundBrush}"
+             Loaded="UserControl_Loaded_WithAutoDbRefresh"
+             Unloaded="UserControl_Unloaded">
+    <UserControl.Resources>
+        <conv:BoolToColorConverter x:Key="BoolToColor"/>
+        <conv:BoolToStringConverter x:Key="BoolToString"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- 协议导入折叠区深色样式 -->
+        <Style x:Key="ImportExpanderStyle" TargetType="Expander">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <StackPanel>
+                            <!-- 折叠标题行 -->
+                            <ToggleButton IsChecked="{Binding IsExpanded,
+                                          RelativeSource={RelativeSource TemplatedParent},
+                                          Mode=TwoWay}"
+                                          Background="Transparent" BorderThickness="0"
+                                          Padding="0" Cursor="Hand" HorizontalAlignment="Left">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent" Padding="0">
+                                            <ContentPresenter/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="Arrow" Text="▶"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontSize="8" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                    <ContentPresenter ContentSource="Header"/>
+                                </StackPanel>
+                            </ToggleButton>
+                            <!-- 内容区 -->
+                            <ContentPresenter x:Name="ExpandSite" Visibility="Collapsed" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="Arrow" Property="Text" Value="▼"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="DeviceItemTemplate">
+            <Border Padding="6,5" Cursor="Hand">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1E293B"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <DockPanel>
+                    <!-- 设备勾选框：勾选后启动监听生效、自动模拟运行、导出时包含此设备 -->
+                    <CheckBox DockPanel.Dock="Right"
+                              IsChecked="{Binding IsSimulating, Mode=TwoWay}"
+                              IsEnabled="{Binding DataContext.CanToggleDeviceSimulation,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              VerticalAlignment="Center" Margin="4,0,0,0"
+                              ToolTip="勾选后：启动监听时寄存器生效，定时模拟运行，导出时包含此设备"/>
+                    <TextBlock Text="{Binding DeviceName}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="13" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="InspectorItemTemplate">
+            <Border Padding="6,5" Cursor="Hand">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1E293B"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding DeviceName}"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+            </Border>
+        </DataTemplate>
+
+
+        <!-- 导入协议设备专用模板：含删除按钮 -->
+        <DataTemplate x:Key="ImportedDeviceItemTemplate">
+            <Border Padding="6,4" Cursor="Hand">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1E293B"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <DockPanel>
+                    <!-- 与设备列表一致：仅勾选后参与发送/模拟 -->
+                    <CheckBox DockPanel.Dock="Right"
+                              IsChecked="{Binding IsSimulating, Mode=TwoWay}"
+                              IsEnabled="{Binding DataContext.CanToggleDeviceSimulation,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              VerticalAlignment="Center" Margin="4,0,0,0"
+                              ToolTip="勾选后：启动监听时寄存器生效，定时模拟运行，导出时包含此设备"/>
+                    <Button DockPanel.Dock="Right" Width="18" Height="18" Padding="0"
+                            Content="x" FontSize="12"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Foreground="#EF4444"
+                            Command="{Binding DataContext.RemoveImportedDeviceCommand,
+                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}"
+                            ToolTip="从列表和数据库中删除此协议设备"/>
+                    <TextBlock Text="{Binding DeviceName}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="12" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,4,0"/>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- 顶部连接配置区 -->
+            <RowDefinition Height="Auto"/>
+            <!-- 中间内容区（左侧设备列表 + 右侧设备面板） -->
+            <RowDefinition Height="*"/>
+            <!-- 底部日志区 -->
+            <RowDefinition Height="180"/>
+        </Grid.RowDefinitions>
+
+        <!-- ===== 顶部：监听配置列表 ===== -->
+        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" Padding="10,6"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+            <StackPanel>
+
+                <!-- 标题栏：全局操作按钮 -->
+                <DockPanel Margin="0,0,0,4">
+                    <TextBlock DockPanel.Dock="Left" Text="监听配置"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <WrapPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Content="刷新DB" Height="26" Padding="8,0" Margin="0,0,6,0"
+                                Command="{Binding RefreshDbCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                ToolTip="连接数据库并重新加载已保存的协议设备"/>
+                        <Button Content="↻" Width="26" Height="26" Margin="0,0,6,0"
+                                Command="{Binding RefreshTcpAddressesCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}" Padding="0" FontSize="14"
+                                ToolTip="刷新本地网卡 IP 和串口列表"/>
+                        <Button Content="＋ 新增监听" Height="26" Padding="8,0" Margin="0,0,6,0"
+                                Command="{Binding AddListenerCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                ToolTip="添加一条新的监听端点配置"/>
+                        <Button Content="▶ 启动全部" Height="26" Padding="8,0" Margin="0,0,6,0"
+                                Command="{Binding StartAllListenersCommand}"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                ToolTip="启动所有已勾选且未运行的监听"/>
+                        <Button Content="⏹ 停止全部" Height="26" Padding="8,0"
+                                Command="{Binding StopAllListenersCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                ToolTip="停止所有正在运行的监听"/>
+                    </WrapPanel>
+                </DockPanel>
+
+                <!-- 监听配置列表 -->
+                <ScrollViewer x:Name="ListenerListScrollViewer"
+                              MaxHeight="180" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Listeners}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,1" Padding="6,5"
+                                        Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
+                                        Background="#0D1117"
+                                        BorderBrush="{StaticResource BorderBrush}"
+                                        BorderThickness="1" CornerRadius="3">
+                                    <DockPanel ClipToBounds="True">
+                                        <!-- 状态指示（靠右，先声明） -->
+                                        <Button DockPanel.Dock="Right" Height="22" Width="22"
+                                                Content="×" Padding="0" FontSize="13"
+                                                Command="{Binding DataContext.RemoveListenerCommand,
+                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="删除此监听配置（运行中请先停止）">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.Listeners.Count, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="1">
+                                                            <Setter Property="IsEnabled" Value="False"/>
+                                                            <Setter Property="Opacity" Value="0.3"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                            <Setter Property="IsEnabled" Value="False"/>
+                                                            <Setter Property="Opacity"   Value="0.3"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button DockPanel.Dock="Right" Height="22" Padding="8,0" Margin="0,0,4,0"
+                                                Content="{Binding IsRunning, Converter={StaticResource BoolToString},
+                                                          ConverterParameter='⏹ 停止|▶ 启动'}"
+                                                Style="{StaticResource PrimaryButtonStyle}"
+                                                Command="{Binding DataContext.ToggleListenerCommand,
+                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"/>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                                    VerticalAlignment="Center" Margin="6,0,8,0">
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,4,0"
+                                                     Fill="{Binding IsRunning, Converter={StaticResource BoolToColor},
+                                                            ConverterParameter='#22C55E|#475569'}"/>
+                                            <TextBlock Text="{Binding StatusText}"
+                                                       Foreground="{Binding IsRunning, Converter={StaticResource BoolToColor},
+                                                                   ConverterParameter='#22C55E|#94A3B8'}"
+                                                       FontSize="11" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <!-- 配置字段（靠左填充） -->
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                      VerticalAlignment="Center" Margin="0,0,5,0"
+                                                      ToolTip="勾选后才会被「启动全部」包含"/>
+                                            <ComboBox MinWidth="68" Height="22"
+                                                      ItemsSource="{Binding ProtocolNames}"
+                                                      SelectedIndex="{Binding ProtocolIndex, Mode=TwoWay}"
+                                                      Style="{StaticResource DataComboBoxStyle}"
+                                                      Margin="0,0,6,0"/>
+                                            <!-- TCP -->
+                                            <StackPanel Orientation="Horizontal"
+                                                        Visibility="{Binding IsTcpMode, Converter={StaticResource BoolToVis}}">
+                                                <ComboBox Width="116" Height="22" IsEditable="True"
+                                                          ItemsSource="{Binding DataContext.AvailableTcpAddresses,
+                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                          Text="{Binding ListenAddress, UpdateSourceTrigger=PropertyChanged}"
+                                                          Style="{StaticResource DataComboBoxStyle}"
+                                                          Margin="0,0,2,0"/>
+                                                <TextBlock Text=":" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                                           Margin="0,0,2,0"/>
+                                                <TextBox Width="48" Height="22"
+                                                         Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource DataTextBoxStyle}"
+                                                         Margin="0,0,6,0"/>
+                                            </StackPanel>
+                                            <!-- RTU -->
+                                            <StackPanel Orientation="Horizontal"
+                                                        Visibility="{Binding IsRtuMode, Converter={StaticResource BoolToVis}}">
+                                                <ComboBox Width="76" Height="22"
+                                                          ItemsSource="{Binding DataContext.AvailableComPorts,
+                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                          SelectedItem="{Binding ComPort, Mode=TwoWay}"
+                                                          Style="{StaticResource DataComboBoxStyle}"
+                                                          Margin="0,0,4,0"/>
+                                                <ComboBox Width="76" Height="22"
+                                                          ItemsSource="{Binding DataContext.BaudRateOptions,
+                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                          SelectedItem="{Binding BaudRate, Mode=TwoWay}"
+                                                          Style="{StaticResource DataComboBoxStyle}"
+                                                          Margin="0,0,6,0"/>
+                                            </StackPanel>
+                                            <!-- Slave ID -->
+                                            <TextBlock Text="ID:" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="11" Margin="0,0,3,0"/>
+                                            <TextBox Width="36" Height="22"
+                                                     Text="{Binding SlaveId, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource DataTextBoxStyle}"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- DB 连接行 -->
+                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,5,0"
+                             Fill="{Binding IsSlaveDbConnected, Converter={StaticResource BoolToColor},
+                                    ConverterParameter='#22C55E|#475569'}"/>
+                    <TextBlock Text="{Binding SlaveDbStatusText}"
+                               Foreground="{Binding IsSlaveDbConnected, Converter={StaticResource BoolToColor},
+                                           ConverterParameter='#22C55E|#94A3B8'}"
+                               VerticalAlignment="Center" FontSize="11" Margin="0,0,8,0"/>
+                </WrapPanel>
+
+                <!-- 全局状态行 + 工具按钮 -->
+                <WrapPanel Orientation="Horizontal" Margin="0,5,0,0">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,5,0"
+                             Fill="{Binding IsRunning, Converter={StaticResource BoolToColor},
+                                    ConverterParameter='#22C55E|#475569'}"/>
+                    <TextBlock Text="{Binding IsRunning, Converter={StaticResource BoolToString},
+                                      ConverterParameter='监听中|已停止'}"
+                               Foreground="{Binding IsRunning, Converter={StaticResource BoolToColor},
+                                           ConverterParameter='#22C55E|#94A3B8'}"
+                               VerticalAlignment="Center" FontSize="11" Margin="0,0,16,0"/>
+                    <TextBlock Text="{Binding RequestCount, StringFormat='请求总计：{0}'}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" FontSize="11" Margin="0,0,20,0"/>
+                    <Button Content="📋 新建协议" Style="{StaticResource SecondaryButtonStyle}"
+                            Margin="0,0,6,0" ToolTip="新建协议配置：配置监听端点并导入寄存器协议"
+                            Click="NewProtocol_Click"/>
+                </WrapPanel>
+
+            </StackPanel>
+        </Border>
+
+        <!-- ===== 中间内容区 ===== -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <!-- 左侧设备选择列表 -->
+                <ColumnDefinition Width="160" MinWidth="120"/>
+                <ColumnDefinition Width="4"/>
+                <!-- 右侧设备面板 -->
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧设备列表 -->
+            <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                <DockPanel>
+
+                    <!-- 寄存器检视（固定在最底部，不折叠） -->
+                    <Border DockPanel.Dock="Bottom"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                        <ListBox x:Name="InspectorDevicesList"
+                                 ItemsSource="{Binding InspectorList}"
+                                 IsSynchronizedWithCurrentItem="False"
+                                 SelectionChanged="InspectorDevicesList_SelectionChanged"
+                                 ItemTemplate="{StaticResource InspectorItemTemplate}"
+                                 Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#2563EB22"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                    </Border>
+
+                    <!-- 折叠区域（两个 Expander 紧凑堆叠，整体可滚动） -->
+                    <ScrollViewer x:Name="DeviceListScroller"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  PanningMode="VerticalFirst">
+                        <StackPanel>
+
+                            <!-- 内置设备折叠区（默认收起） -->
+                            <Expander Style="{StaticResource ImportExpanderStyle}"
+                                      IsExpanded="False" Padding="0,4,0,0">
+                                <Expander.Header>
+                                    <TextBlock Text="设备列表(ING)"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontSize="11" FontWeight="SemiBold"/>
+                                </Expander.Header>
+                                <ListBox x:Name="BuiltinDevicesList"
+                                         ItemsSource="{Binding BuiltinDevices}"
+                                         IsSynchronizedWithCurrentItem="False"
+                                         SelectionChanged="BuiltinDevicesList_SelectionChanged"
+                                         ItemTemplate="{StaticResource DeviceItemTemplate}"
+                                         PreviewMouseWheel="DeviceListChild_PreviewMouseWheel"
+                                         Background="Transparent" BorderThickness="0"
+                                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Background" Value="#2563EB22"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                </ListBox>
+                            </Expander>
+
+                            <!-- 协议导入设备折叠区（默认收起，始终显示） -->
+                            <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                                <Expander Style="{StaticResource ImportExpanderStyle}"
+                                          IsExpanded="{Binding DataContext.HasImportedDevices, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"
+                                          Padding="0,4,0,0">
+                                    <Expander.Header>
+                                        <TextBlock Text="协议导入设备"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   FontSize="11" FontWeight="SemiBold"/>
+                                    </Expander.Header>
+                                    <ListBox x:Name="ImportedDevicesList"
+                                             ItemsSource="{Binding DataContext.ImportedDevices,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                             IsSynchronizedWithCurrentItem="False"
+                                             SelectionChanged="ImportedDevicesList_SelectionChanged"
+                                             ItemTemplate="{StaticResource ImportedDeviceItemTemplate}"
+                                             PreviewMouseWheel="DeviceListChild_PreviewMouseWheel"
+                                             Background="Transparent" BorderThickness="0"
+                                             ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="Padding" Value="0"/>
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#2563EB22"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                    </ListBox>
+                                </Expander>
+                            </Border>
+
+                        </StackPanel>
+                    </ScrollViewer>
+
+                </DockPanel>
+            </Border>
+
+            <!-- 分隔条（可拖拽） -->
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
+                          Background="{StaticResource BorderBrush}" Cursor="SizeWE"/>
+
+            <!-- 右侧设备面板（根据 SelectedDevice 类型切换） -->
+            <ContentControl x:Name="RightDevicePanelContent"
+                            Grid.Column="2" Content="{Binding SelectedDevicePanel}"
+                            Visibility="{Binding HasSelectedDevice, Converter={StaticResource BoolToVis}}"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"/>
+        </Grid>
+
+        <!-- ===== 底部日志区 ===== -->
+        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+            <DockPanel>
+                <!-- 日志标题栏 -->
+                <Border DockPanel.Dock="Top" Padding="12,4"
+                        Background="#13192D"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                    <DockPanel>
+                        <TextBlock Text="运行日志" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button DockPanel.Dock="Right" Content="清空" Width="50" Height="22"
+                                Command="{Binding ClearLogCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                FontSize="11" Padding="4,0"/>
+                    </DockPanel>
+                </Border>
+
+                <!-- 日志内容 -->
+                <ScrollViewer x:Name="LogScrollViewer"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding LogEntries}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayText}"
+                                           FontFamily="Consolas, Courier New"
+                                           FontSize="11"
+                                           Padding="12,1"
+                                           Foreground="{Binding Level, Converter={StaticResource BoolToColor}}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Level}" Value="WARN">
+                                                    <Setter Property="Foreground" Value="#F97316"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Level}" Value="ERROR">
+                                                    <Setter Property="Foreground" Value="#EF4444"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Level}" Value="INFO">
+                                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

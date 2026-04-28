@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>GS215ModbusSimulator</AssemblyName>
+    <RootNamespace>SimulatorApp</RootNamespace>
+    <Platforms>x64</Platforms>
+    <Configurations>Debug;Release</Configurations>
+    <!-- 允许 Source Generator 生成 ObservableProperty 等代码 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WPF UI 组件库，深色工业风主题 -->
+    <PackageReference Include="HandyControl" Version="3.5.1" />
+    <!-- MVVM 框架（Source Generator 模式，自动生成 ObservableProperty / RelayCommand） -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <!-- Modbus TCP/RTU 主站 + 从站 -->
+    <PackageReference Include="NModbus4" Version="2.1.0" />
+    <!-- JSON 序列化（配置快照）-->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <!-- DI 容器 -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
+    <!-- 文件日志 -->
+    <PackageReference Include="NLog" Version="5.3.4" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="5.3.14" />
+    <!-- Excel 导入/导出（MIT License） -->
+    <PackageReference Include="ClosedXML" Version="0.102.3" />
+    <!-- SQL Server ADO.NET 驱动（主站数据库） -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <!-- .NET 8 需要显式引用串口支持 -->
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- NLog 配置文件复制到输出目录 -->
+    <Content Include="Shared\Logging\nlog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

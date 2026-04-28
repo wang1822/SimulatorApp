@@ -1,0 +1,131 @@
+<UserControl x:Class="SimulatorApp.Slave.Views.Panels.AirConditionerPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:SimulatorApp.Slave.Views.Controls"
+             Background="{StaticResource SurfaceBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="12,8">
+            <TextBlock Text="【遥测数值】" Style="{StaticResource SectionTitleStyle}"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="150"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto" MinWidth="150"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="55"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="室外环境温度" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding AirOutTemp1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="室内环境温度" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding AirInterTemp1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="室内环境湿度" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding AirInterRh1, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="%RH" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="内盘管温度" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding AirInterCoilTemp, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="交流电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding AirACVoltage, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="制冷点" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding AirCoolPoint, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="2" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="除湿点" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding AirRHDiffPoint, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="%RH" Style="{StaticResource LabelStyle}"/>
+
+                <!-- 右列 -->
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="输入电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="0" Grid.Column="5" Text="{Binding AirInputCurrent, UpdateSourceTrigger=PropertyChanged, StringFormat=F3}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="压缩机电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="1" Grid.Column="5" Text="{Binding AirCompressorCurrent, UpdateSourceTrigger=PropertyChanged, StringFormat=F3}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="外风机转速" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="2" Grid.Column="5" Text="{Binding AirExterFanSpeed, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="r/min" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="内风机转速" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="3" Grid.Column="5" Text="{Binding AirInterFanSpeed, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Text="r/min" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="压缩机频率" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="4" Grid.Column="5" Text="{Binding AirCompressorFre, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Text="Hz" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="4" Text="加热点" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="5" Grid.Column="5" Text="{Binding AirHeatPoint, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="6" Text="℃" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+
+            <TextBlock Text="【运行状态】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <WrapPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="整机运行：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Width="110" Style="{StaticResource DataComboBoxStyle}"
+                              ItemsSource="{Binding RunStateItems}" DisplayMemberPath="Display"
+                              SelectedValuePath="Value" SelectedValue="{Binding AirAllRunState, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="外风机：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Width="70" Style="{StaticResource DataComboBoxStyle}"
+                              ItemsSource="{Binding OnOffItems}" DisplayMemberPath="Display"
+                              SelectedValuePath="Value" SelectedValue="{Binding AirExterRunState, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="内风机：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Width="70" Style="{StaticResource DataComboBoxStyle}"
+                              ItemsSource="{Binding OnOffItems}" DisplayMemberPath="Display"
+                              SelectedValuePath="Value" SelectedValue="{Binding AirInterRunState, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="压缩机：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Width="70" Style="{StaticResource DataComboBoxStyle}"
+                              ItemsSource="{Binding OnOffItems}" DisplayMemberPath="Display"
+                              SelectedValuePath="Value" SelectedValue="{Binding AirCompressRunState, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                    <TextBlock Text="特定模式：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Width="100" Style="{StaticResource DataComboBoxStyle}"
+                              ItemsSource="{Binding PatternItems}" DisplayMemberPath="Display"
+                              SelectedValuePath="Value" SelectedValue="{Binding SpecificPattern, Mode=TwoWay}"/>
+                </StackPanel>
+            </WrapPanel>
+
+            <TextBlock Text="【故障/告警注入】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <TextBlock Text="告警：" Style="{StaticResource LabelStyle}" Margin="0,4,0,2"/>
+            <ctrl:AlarmCheckList DataContext="{Binding AlarmItems}"/>
+            <TextBlock Text="故障：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding FaultItems}"/>
+
+            <WrapPanel Orientation="Horizontal" Margin="0,12,0,4">
+                <Button Content="🎲 一键生成数据" Command="{Binding GenerateDataCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
+                <Button Content="🗑 清除所有告警" Command="{Binding ClearAlarmsCommand}"
+                        Style="{StaticResource DangerButtonStyle}"/>
+            </WrapPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

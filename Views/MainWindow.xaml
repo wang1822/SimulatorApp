@@ -1,0 +1,125 @@
+<Window x:Class="SimulatorApp.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:slave="clr-namespace:SimulatorApp.Slave.Views.Panels"
+        xmlns:master="clr-namespace:SimulatorApp.Master.Views"
+        xmlns:conv="clr-namespace:SimulatorApp.Shared.Converters"
+        Title="{Binding Title}"
+        Width="1280" Height="800"
+        MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundBrush}">
+
+    <Window.Resources>
+        <conv:BoolToColorConverter  x:Key="BoolToColor"/>
+        <conv:BoolToStringConverter x:Key="BoolToString"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- ===== 顶部导航栏 ===== -->
+        <Border DockPanel.Dock="Top"
+                Background="#0A0F1E"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="12,0">
+            <DockPanel Height="46">
+                <!-- 左侧：应用标题 -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0">
+                    <TextBlock Text="⚡" FontSize="18" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Text="{Binding Title}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="14" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- 中间：模式切换 Tab -->
+                <Border VerticalAlignment="Center" Margin="0,0,0,0" CornerRadius="6"
+                        Background="{StaticResource SurfaceBrush}" Padding="3">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- 从站模式按钮 -->
+                        <Button Command="{Binding SwitchToSlaveCommand}"
+                                Width="110" Height="32" Padding="0"
+                                FontSize="13">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSlaveMode}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <TextBlock>
+                                <Run Text="🖥 "/>
+                                <Run Text="从站模式(ing)"/>
+                            </TextBlock>
+                        </Button>
+
+                        <!-- 主站模式按钮 -->
+                        <Button Command="{Binding SwitchToMasterCommand}"
+                                Width="110" Height="32" Padding="0" Margin="2,0,0,0"
+                                FontSize="13">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMasterMode}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <TextBlock>
+                                <Run Text="📡 "/>
+                                <Run Text="主站模式"/>
+                            </TextBlock>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- 右侧：REST API 开关 -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                            VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <TextBlock Text="REST API 端口：" Style="{StaticResource LabelStyle}"
+                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox Width="60" Style="{StaticResource DataTextBoxStyle}"
+                             Text="{Binding RestApiPort, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding IsRestApiEnabled, Converter={StaticResource BoolToVis}, ConverterParameter=Inverse}"/>
+                    <Button Content="{Binding IsRestApiEnabled, Converter={StaticResource BoolToString}, ConverterParameter='⏹ 关闭API|▶ 启动API'}"
+                            Command="{Binding ToggleRestApiCommand}"
+                            Width="100" Height="28"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Margin="8,0,12,0"/>
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,4,0"
+                             Fill="{Binding IsRestApiEnabled, Converter={StaticResource BoolToColor}, ConverterParameter='#22C55E|#475569'}"/>
+                    <TextBlock Text="{Binding RestApiStatus}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11" VerticalAlignment="Center" MaxWidth="300"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== 主内容区 ===== -->
+        <Grid x:Name="MainContentGrid">
+            <!--
+                注意：DataContext 被改为 SlaveVm/MasterVm 后，普通 {Binding} 会在子 VM 上找属性。
+                Visibility 需要绑到 Window 的 DataContext（MainViewModel），
+                必须用 RelativeSource 显式指定，否则 IsSlaveMode/IsMasterMode 找不到 → Collapsed。
+            -->
+            <!-- 从站面板（IsSlaveMode=True 时显示） -->
+            <slave:SlavePanel DataContext="{Binding SlaveVm}"
+                              Visibility="{Binding DataContext.IsSlaveMode,
+                                           RelativeSource={RelativeSource AncestorType={x:Type Window}},
+                                           Converter={StaticResource BoolToVis}}"/>
+
+            <!-- 主站面板（IsMasterMode=True 时显示） -->
+            <master:MasterPanel DataContext="{Binding MasterVm}"
+                                Visibility="{Binding DataContext.IsMasterMode,
+                                             RelativeSource={RelativeSource AncestorType={x:Type Window}},
+                                             Converter={StaticResource BoolToVis}}"/>
+        </Grid>
+    </DockPanel>
+</Window>

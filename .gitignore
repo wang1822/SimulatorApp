@@ -1,0 +1,16 @@
+# Build artifacts
+bin/
+obj/
+
+# IDE
+.vs/
+
+# Local outputs
+_build_verify/
+_out2/
+stdout/
+msbuild.binlog
+
+# User-specific
+*.user
+*.suo

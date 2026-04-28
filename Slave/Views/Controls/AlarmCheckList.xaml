@@ -1,0 +1,26 @@
+<UserControl x:Class="SimulatorApp.Slave.Views.Controls.AlarmCheckList"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:SimulatorApp.Slave.ViewModels">
+    <!--
+        告警/故障多选控件：
+        使用 WrapPanel + CheckBox 展示所有 AlarmItem，
+        每个 CheckBox.IsChecked 双向绑定到 AlarmItem.IsChecked。
+        DataContext 应绑定到 ObservableCollection<AlarmItem>。
+    -->
+    <ItemsControl ItemsSource="{Binding}">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal"/>
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:AlarmItem}">
+                <CheckBox Content="{Binding Label}"
+                          IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                          Style="{StaticResource AlarmCheckBoxStyle}"
+                          Margin="4,2"/>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

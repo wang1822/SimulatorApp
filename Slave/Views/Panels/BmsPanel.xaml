@@ -1,0 +1,130 @@
+<UserControl x:Class="SimulatorApp.Slave.Views.Panels.BmsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:SimulatorApp.Slave.Views.Controls"
+             Background="{StaticResource SurfaceBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="12,8">
+
+            <TextBlock Text="【遥测数值】" Style="{StaticResource SectionTitleStyle}"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="180"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto" MinWidth="180"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="60"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="累加内总压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding InsideAddedTotalVolt, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="总电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding CombinedCurrent, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="SOC" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding Soc, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="%" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="SOH" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding Soh, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="%" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="允许充电电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding AllowableChargingCurrent, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="允许放电电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding AllowableDischargeCurrent, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="系统绝缘值" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding SystemInsulationValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="kΩ" Style="{StaticResource LabelStyle}"/>
+
+                <!-- 右列 -->
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="最高电芯电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="0" Grid.Column="5" Text="{Binding MaxCellVolt, UpdateSourceTrigger=PropertyChanged, StringFormat=F3}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="最低电芯电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="1" Grid.Column="5" Text="{Binding MinCellVolt, UpdateSourceTrigger=PropertyChanged, StringFormat=F3}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="系统压差" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="2" Grid.Column="5" Text="{Binding SystemVoltDifferential, UpdateSourceTrigger=PropertyChanged, StringFormat=F3}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="最高电芯温度" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="3" Grid.Column="5" Text="{Binding MaxCellTemp, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="最低电芯温度" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="4" Grid.Column="5" Text="{Binding MinCellTemp, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="4" Text="系统温差" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="5" Grid.Column="5" Text="{Binding SystemTempDifference, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="6" Text="℃" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+
+            <TextBlock Text="【运行状态】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <WrapPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="系统状态：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Width="100" Style="{StaticResource DataComboBoxStyle}"
+                              ItemsSource="{Binding SystemStateItems}" DisplayMemberPath="Display"
+                              SelectedValuePath="Value" SelectedValue="{Binding SystemState, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="禁止充电：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Width="80" Style="{StaticResource DataComboBoxStyle}"
+                              ItemsSource="{Binding ProhibitItems}" DisplayMemberPath="Display"
+                              SelectedValuePath="Value" SelectedValue="{Binding ChargeProhibitedSign, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                    <TextBlock Text="禁止放电：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Width="80" Style="{StaticResource DataComboBoxStyle}"
+                              ItemsSource="{Binding ProhibitItems}" DisplayMemberPath="Display"
+                              SelectedValuePath="Value" SelectedValue="{Binding DischargeProhibitedSign, Mode=TwoWay}"/>
+                </StackPanel>
+            </WrapPanel>
+
+            <TextBlock Text="【故障/告警注入】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+
+            <TextBlock Text="告警字1（+94）：" Style="{StaticResource LabelStyle}" Margin="0,4,0,2"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Alarm1Items}"/>
+            <TextBlock Text="告警字2（+95）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Alarm2Items}"/>
+            <TextBlock Text="故障字1（+98）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault1Items}"/>
+            <TextBlock Text="故障字2（+99）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault2Items}"/>
+            <TextBlock Text="故障字3（+100）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault3Items}"/>
+            <TextBlock Text="故障字4（+101）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault4Items}"/>
+
+            <WrapPanel Orientation="Horizontal" Margin="0,12,0,4">
+                <Button Content="🎲 一键生成数据" Command="{Binding GenerateDataCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
+                <Button Content="🗑 清除所有告警" Command="{Binding ClearAlarmsCommand}"
+                        Style="{StaticResource DangerButtonStyle}"/>
+            </WrapPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
