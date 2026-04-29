@@ -3,69 +3,359 @@ using SimulatorApp.Shared.Services;
 namespace SimulatorApp.Slave.Models.StsInstrument;
 
 /// <summary>
-/// STS 仪表数据模型（基地址 1408）。
-/// 字段定义参考设计文档第 8.4 节。
+/// GS215STS 数据模型，依据 STS_500_Modbus协议.xlsx 的 5000-5233 寄存器表。
 /// </summary>
 public class StsInstrumentModel : DeviceModelBase
 {
-    public override string DeviceName => "STS 仪表";
-    public override int BaseAddress    => 1408;
-    public override int RegisterCount  => 161;
+    public override string DeviceName => "GS215STS";
+    public override int BaseAddress => 5000;
+    public override int RegisterCount => 234;
 
-    public double GridVoltA         { get; set; } = 220.0; // ×0.1 V，偏移 +20
-    public double GridVoltB         { get; set; } = 220.0;
-    public double GridVoltC         { get; set; } = 220.0;
-    public double GridCurrentA      { get; set; } = 0.0;   // ×0.1 A，偏移 +26
-    public double GridCurrentB      { get; set; } = 0.0;
-    public double GridCurrentC      { get; set; } = 0.0;
-    public double StsGridFrequency  { get; set; } = 50.0;  // ×0.1 Hz，偏移 +29
-    public double GeneratorVoltA    { get; set; } = 0.0;
-    public double GeneratorVoltB    { get; set; } = 0.0;
-    public double GeneratorVoltC    { get; set; } = 0.0;
-    public double GeneratorFrequency{ get; set; } = 0.0;   // 偏移 +39
-    public double InverterVoltA     { get; set; } = 220.0; // 偏移 +40
-    public double InverterFrequency { get; set; } = 50.0;  // 偏移 +46
-
-    public int StsOperatingMode { get; set; } = 0; // 偏移 +19：0=待机,1=自检,2=正常
-
-    public ushort STSAlarm1 { get; set; }
-    public ushort STSAlarm2 { get; set; }
-    public ushort STSFault1 { get; set; }
-    public ushort STSFault2 { get; set; }
-    public ushort STSFault3 { get; set; }
-    public ushort STSFault4 { get; set; }
+    public int TestStateSet { get; set; } = 0;
+    public int FactoryTestEntry { get; set; } = 0;
+    public int GridVoltageCalibration { get; set; } = 0;
+    public int GeneratorVoltageCalibration { get; set; } = 0;
+    public int InverterVoltageCalibration { get; set; } = 0;
+    public int GridCurrentCalibration { get; set; } = 0;
+    public int GeneratorCurrentCalibration { get; set; } = 0;
+    public int EnergyCalibration { get; set; } = 0;
+    public int FanTest { get; set; } = 0;
+    public int OperatingState { get; set; } = 2;
+    public double GridVoltageA { get; set; } = 220.0;
+    public double GridVoltageB { get; set; } = 220.0;
+    public double GridVoltageC { get; set; } = 220.0;
+    public double GridVoltageAB { get; set; } = 380.0;
+    public double GridVoltageBC { get; set; } = 380.0;
+    public double GridVoltageCA { get; set; } = 380.0;
+    public double GridCurrentA { get; set; } = 0.0;
+    public double GridCurrentB { get; set; } = 0.0;
+    public double GridCurrentC { get; set; } = 0.0;
+    public double GridFrequency { get; set; } = 50.0;
+    public double GeneratorVoltageA { get; set; } = 0.0;
+    public double GeneratorVoltageB { get; set; } = 0.0;
+    public double GeneratorVoltageC { get; set; } = 0.0;
+    public double GeneratorVoltageAB { get; set; } = 0.0;
+    public double GeneratorVoltageBC { get; set; } = 0.0;
+    public double GeneratorVoltageCA { get; set; } = 0.0;
+    public double GeneratorCurrentA { get; set; } = 0.0;
+    public double GeneratorCurrentB { get; set; } = 0.0;
+    public double GeneratorCurrentC { get; set; } = 0.0;
+    public double GeneratorFrequency { get; set; } = 0.0;
+    public double InverterVoltageA { get; set; } = 220.0;
+    public double InverterVoltageB { get; set; } = 220.0;
+    public double InverterVoltageC { get; set; } = 220.0;
+    public double InverterVoltageAB { get; set; } = 380.0;
+    public double InverterVoltageBC { get; set; } = 380.0;
+    public double InverterVoltageCA { get; set; } = 380.0;
+    public double InverterFrequency { get; set; } = 50.0;
+    public double Temperature1 { get; set; } = 25.0;
+    public double Temperature2 { get; set; } = 25.0;
+    public double Temperature3 { get; set; } = 25.0;
+    public ushort BreakerStatus { get; set; } = 0;
+    public ushort Alarm1 { get; set; } = 0;
+    public ushort Alarm2 { get; set; } = 0;
+    public ushort Fault1 { get; set; } = 0;
+    public ushort Fault2 { get; set; } = 0;
+    public ushort Fault3 { get; set; } = 0;
+    public ushort Fault4 { get; set; } = 0;
+    public ushort InternalFanAd { get; set; } = 0;
+    public ushort ExternalFanAd { get; set; } = 0;
+    public int TestState { get; set; } = 0;
+    public ushort Rsd1 { get; set; } = 0;
+    public ushort Rsd2 { get; set; } = 0;
+    public ushort Rsd3 { get; set; } = 0;
+    public ushort Rsd4 { get; set; } = 0;
+    public ushort Rsd5 { get; set; } = 0;
+    public double ParallelVoltageA { get; set; } = 220.0;
+    public double ParallelVoltageB { get; set; } = 220.0;
+    public double ParallelVoltageC { get; set; } = 220.0;
+    public double ParallelVoltageAB { get; set; } = 380.0;
+    public double ParallelVoltageBC { get; set; } = 380.0;
+    public double ParallelVoltageCA { get; set; } = 380.0;
+    public double ParallelCurrentA { get; set; } = 0.0;
+    public double ParallelCurrentB { get; set; } = 0.0;
+    public double ParallelCurrentC { get; set; } = 0.0;
+    public double ParallelFrequency { get; set; } = 50.0;
+    public double GridTotalPower { get; set; } = 0.0;
+    public double GridPhaseAPower { get; set; } = 0.0;
+    public double GridPhaseBPower { get; set; } = 0.0;
+    public double GridPhaseCPower { get; set; } = 0.0;
+    public double GridTotalReactivePower { get; set; } = 0.0;
+    public double GridPhaseAReactivePower { get; set; } = 0.0;
+    public double GridPhaseBReactivePower { get; set; } = 0.0;
+    public double GridPhaseCReactivePower { get; set; } = 0.0;
+    public double GridDailySoldEnergy { get; set; } = 0.0;
+    public double GridDailyPurchasedEnergy { get; set; } = 0.0;
+    public double GridTotalSoldEnergy { get; set; } = 0.0;
+    public double GridTotalPurchasedEnergy { get; set; } = 0.0;
+    public double GeneratorTotalPower { get; set; } = 0.0;
+    public double GeneratorPhaseAPower { get; set; } = 0.0;
+    public double GeneratorPhaseBPower { get; set; } = 0.0;
+    public double GeneratorPhaseCPower { get; set; } = 0.0;
+    public double GeneratorTotalReactivePower { get; set; } = 0.0;
+    public double GeneratorPhaseAReactivePower { get; set; } = 0.0;
+    public double GeneratorPhaseBReactivePower { get; set; } = 0.0;
+    public double GeneratorPhaseCReactivePower { get; set; } = 0.0;
+    public double GeneratorDailySoldEnergy { get; set; } = 0.0;
+    public double GeneratorDailyPurchasedEnergy { get; set; } = 0.0;
+    public double GeneratorTotalSoldEnergy { get; set; } = 0.0;
+    public double GeneratorTotalPurchasedEnergy { get; set; } = 0.0;
+    public uint GridRelayStatus { get; set; } = 0;
+    public uint GeneratorRelayStatus { get; set; } = 0;
+    public uint ParallelRelayStatus { get; set; } = 0;
+    public double ParallelTotalPower { get; set; } = 0.0;
+    public double ParallelPhaseAPower { get; set; } = 0.0;
+    public double ParallelPhaseBPower { get; set; } = 0.0;
+    public double ParallelPhaseCPower { get; set; } = 0.0;
+    public double ParallelTotalReactivePower { get; set; } = 0.0;
+    public double ParallelPhaseAReactivePower { get; set; } = 0.0;
+    public double ParallelPhaseBReactivePower { get; set; } = 0.0;
+    public double ParallelPhaseCReactivePower { get; set; } = 0.0;
+    public double ParallelDailySoldEnergy { get; set; } = 0.0;
+    public double ParallelDailyPurchasedEnergy { get; set; } = 0.0;
+    public double ParallelTotalSoldEnergy { get; set; } = 0.0;
+    public double ParallelTotalPurchasedEnergy { get; set; } = 0.0;
 
     public override void ToRegisters(RegisterBank bank)
     {
-        int b = BaseAddress;
-        bank.Write(b + 19, (ushort)StsOperatingMode);
-        void WF(int off, double v) => bank.WriteFloat32(b + off, (float)(v / 0.1));
-        WF(20, GridVoltA); WF(21, GridVoltB); WF(22, GridVoltC);
-        WF(26, GridCurrentA); WF(27, GridCurrentB); WF(28, GridCurrentC);
-        WF(29, StsGridFrequency);
-        WF(30, GeneratorVoltA); WF(31, GeneratorVoltB); WF(32, GeneratorVoltC);
-        WF(39, GeneratorFrequency);
-        WF(40, InverterVoltA);
-        WF(46, InverterFrequency);
-        bank.Write(b + 140, STSAlarm1); bank.Write(b + 141, STSAlarm2);
-        bank.Write(b + 142, STSFault1); bank.Write(b + 143, STSFault2);
-        bank.Write(b + 144, STSFault3); bank.Write(b + 145, STSFault4);
+        bank.Write(5000, 0x0803);
+        bank.Write(5001, SlaveId);
+        bank.Write(5002, 0x0100);
+        bank.Write(5080, (ushort)Math.Clamp(TestStateSet, 0, ushort.MaxValue));
+        bank.Write(5081, (ushort)Math.Clamp(FactoryTestEntry, 0, ushort.MaxValue));
+        bank.Write(5082, (ushort)Math.Clamp(GridVoltageCalibration, 0, ushort.MaxValue));
+        bank.Write(5083, (ushort)Math.Clamp(GeneratorVoltageCalibration, 0, ushort.MaxValue));
+        bank.Write(5084, (ushort)Math.Clamp(InverterVoltageCalibration, 0, ushort.MaxValue));
+        bank.Write(5085, (ushort)Math.Clamp(GridCurrentCalibration, 0, ushort.MaxValue));
+        bank.Write(5086, (ushort)Math.Clamp(GeneratorCurrentCalibration, 0, ushort.MaxValue));
+        bank.Write(5087, (ushort)Math.Clamp(EnergyCalibration, 0, ushort.MaxValue));
+        bank.Write(5093, (ushort)Math.Clamp(FanTest, 0, ushort.MaxValue));
+        bank.Write(5100, (ushort)Math.Clamp(OperatingState, 0, ushort.MaxValue));
+        WriteU16(bank, 5101, GridVoltageA, 0.1);
+        WriteU16(bank, 5102, GridVoltageB, 0.1);
+        WriteU16(bank, 5103, GridVoltageC, 0.1);
+        WriteU16(bank, 5104, GridVoltageAB, 0.1);
+        WriteU16(bank, 5105, GridVoltageBC, 0.1);
+        WriteU16(bank, 5106, GridVoltageCA, 0.1);
+        WriteU16(bank, 5107, GridCurrentA, 0.1);
+        WriteU16(bank, 5108, GridCurrentB, 0.1);
+        WriteU16(bank, 5109, GridCurrentC, 0.1);
+        WriteU16(bank, 5110, GridFrequency, 0.01);
+        WriteU16(bank, 5111, GeneratorVoltageA, 0.1);
+        WriteU16(bank, 5112, GeneratorVoltageB, 0.1);
+        WriteU16(bank, 5113, GeneratorVoltageC, 0.1);
+        WriteU16(bank, 5114, GeneratorVoltageAB, 0.1);
+        WriteU16(bank, 5115, GeneratorVoltageBC, 0.1);
+        WriteU16(bank, 5116, GeneratorVoltageCA, 0.1);
+        WriteU16(bank, 5117, GeneratorCurrentA, 0.1);
+        WriteU16(bank, 5118, GeneratorCurrentB, 0.1);
+        WriteU16(bank, 5119, GeneratorCurrentC, 0.1);
+        WriteU16(bank, 5120, GeneratorFrequency, 0.01);
+        WriteU16(bank, 5121, InverterVoltageA, 0.1);
+        WriteU16(bank, 5122, InverterVoltageB, 0.1);
+        WriteU16(bank, 5123, InverterVoltageC, 0.1);
+        WriteU16(bank, 5124, InverterVoltageAB, 0.1);
+        WriteU16(bank, 5125, InverterVoltageBC, 0.1);
+        WriteU16(bank, 5126, InverterVoltageCA, 0.1);
+        WriteU16(bank, 5127, InverterFrequency, 0.01);
+        WriteU16(bank, 5176, Temperature1 + 100.0, 0.1);
+        WriteU16(bank, 5177, Temperature2 + 100.0, 0.1);
+        WriteU16(bank, 5178, Temperature3 + 100.0, 0.1);
+        bank.Write(5179, BreakerStatus);
+        bank.Write(5180, Alarm1);
+        bank.Write(5181, Alarm2);
+        bank.Write(5182, Fault1);
+        bank.Write(5183, Fault2);
+        bank.Write(5184, Fault3);
+        bank.Write(5185, Fault4);
+        bank.Write(5186, InternalFanAd);
+        bank.Write(5187, ExternalFanAd);
+        bank.Write(5188, (ushort)Math.Clamp(TestState, 0, ushort.MaxValue));
+        bank.Write(5195, Rsd1);
+        bank.Write(5196, Rsd2);
+        bank.Write(5197, Rsd3);
+        bank.Write(5198, Rsd4);
+        bank.Write(5199, Rsd5);
+        WriteU16(bank, 5200, ParallelVoltageA, 0.1);
+        WriteU16(bank, 5201, ParallelVoltageB, 0.1);
+        WriteU16(bank, 5202, ParallelVoltageC, 0.1);
+        WriteU16(bank, 5203, ParallelVoltageAB, 0.1);
+        WriteU16(bank, 5204, ParallelVoltageBC, 0.1);
+        WriteU16(bank, 5205, ParallelVoltageCA, 0.1);
+        WriteU16(bank, 5206, ParallelCurrentA, 0.1);
+        WriteU16(bank, 5207, ParallelCurrentB, 0.1);
+        WriteU16(bank, 5208, ParallelCurrentC, 0.1);
+        WriteU16(bank, 5209, ParallelFrequency, 0.01);
+        WriteU32LowFirst(bank, 5128, GridTotalPower, 1.0);
+        WriteU32LowFirst(bank, 5130, GridPhaseAPower, 1.0);
+        WriteU32LowFirst(bank, 5132, GridPhaseBPower, 1.0);
+        WriteU32LowFirst(bank, 5134, GridPhaseCPower, 1.0);
+        WriteU32LowFirst(bank, 5136, GridTotalReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5138, GridPhaseAReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5140, GridPhaseBReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5142, GridPhaseCReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5144, GridDailySoldEnergy, 0.1);
+        WriteU32LowFirst(bank, 5146, GridDailyPurchasedEnergy, 0.1);
+        WriteU32LowFirst(bank, 5148, GridTotalSoldEnergy, 0.1);
+        WriteU32LowFirst(bank, 5150, GridTotalPurchasedEnergy, 0.1);
+        WriteU32LowFirst(bank, 5152, GeneratorTotalPower, 1.0);
+        WriteU32LowFirst(bank, 5154, GeneratorPhaseAPower, 1.0);
+        WriteU32LowFirst(bank, 5156, GeneratorPhaseBPower, 1.0);
+        WriteU32LowFirst(bank, 5158, GeneratorPhaseCPower, 1.0);
+        WriteU32LowFirst(bank, 5160, GeneratorTotalReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5162, GeneratorPhaseAReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5164, GeneratorPhaseBReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5166, GeneratorPhaseCReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5168, GeneratorDailySoldEnergy, 0.1);
+        WriteU32LowFirst(bank, 5170, GeneratorDailyPurchasedEnergy, 0.1);
+        WriteU32LowFirst(bank, 5172, GeneratorTotalSoldEnergy, 0.1);
+        WriteU32LowFirst(bank, 5174, GeneratorTotalPurchasedEnergy, 0.1);
+        WriteU32LowFirst(bank, 5189, GridRelayStatus);
+        WriteU32LowFirst(bank, 5191, GeneratorRelayStatus);
+        WriteU32LowFirst(bank, 5193, ParallelRelayStatus);
+        WriteU32LowFirst(bank, 5210, ParallelTotalPower, 1.0);
+        WriteU32LowFirst(bank, 5212, ParallelPhaseAPower, 1.0);
+        WriteU32LowFirst(bank, 5214, ParallelPhaseBPower, 1.0);
+        WriteU32LowFirst(bank, 5216, ParallelPhaseCPower, 1.0);
+        WriteU32LowFirst(bank, 5218, ParallelTotalReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5220, ParallelPhaseAReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5222, ParallelPhaseBReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5224, ParallelPhaseCReactivePower, 1.0);
+        WriteU32LowFirst(bank, 5226, ParallelDailySoldEnergy, 0.1);
+        WriteU32LowFirst(bank, 5228, ParallelDailyPurchasedEnergy, 0.1);
+        WriteU32LowFirst(bank, 5230, ParallelTotalSoldEnergy, 0.1);
+        WriteU32LowFirst(bank, 5232, ParallelTotalPurchasedEnergy, 0.1);
     }
 
     public override void FromRegisters(RegisterBank bank)
     {
-        int b = BaseAddress;
-        StsOperatingMode  = bank.Read(b + 19);
-        double R(int off) => Math.Round(bank.ReadFloat32(b + off) * 0.1, 2);
-        GridVoltA = R(20); GridVoltB = R(21); GridVoltC = R(22);
-        GridCurrentA = R(26); GridCurrentB = R(27); GridCurrentC = R(28);
-        StsGridFrequency  = R(29);
-        GeneratorVoltA    = R(30); GeneratorVoltB = R(31); GeneratorVoltC = R(32);
-        GeneratorFrequency= R(39);
-        InverterVoltA     = R(40);
-        InverterFrequency = R(46);
-        STSAlarm1 = bank.Read(b + 140); STSAlarm2 = bank.Read(b + 141);
-        STSFault1 = bank.Read(b + 142); STSFault2 = bank.Read(b + 143);
-        STSFault3 = bank.Read(b + 144); STSFault4 = bank.Read(b + 145);
+        TestStateSet = bank.Read(5080);
+        FactoryTestEntry = bank.Read(5081);
+        GridVoltageCalibration = bank.Read(5082);
+        GeneratorVoltageCalibration = bank.Read(5083);
+        InverterVoltageCalibration = bank.Read(5084);
+        GridCurrentCalibration = bank.Read(5085);
+        GeneratorCurrentCalibration = bank.Read(5086);
+        EnergyCalibration = bank.Read(5087);
+        FanTest = bank.Read(5093);
+        OperatingState = bank.Read(5100);
+        GridVoltageA = ReadU16(bank, 5101, 0.1);
+        GridVoltageB = ReadU16(bank, 5102, 0.1);
+        GridVoltageC = ReadU16(bank, 5103, 0.1);
+        GridVoltageAB = ReadU16(bank, 5104, 0.1);
+        GridVoltageBC = ReadU16(bank, 5105, 0.1);
+        GridVoltageCA = ReadU16(bank, 5106, 0.1);
+        GridCurrentA = ReadU16(bank, 5107, 0.1);
+        GridCurrentB = ReadU16(bank, 5108, 0.1);
+        GridCurrentC = ReadU16(bank, 5109, 0.1);
+        GridFrequency = ReadU16(bank, 5110, 0.01);
+        GeneratorVoltageA = ReadU16(bank, 5111, 0.1);
+        GeneratorVoltageB = ReadU16(bank, 5112, 0.1);
+        GeneratorVoltageC = ReadU16(bank, 5113, 0.1);
+        GeneratorVoltageAB = ReadU16(bank, 5114, 0.1);
+        GeneratorVoltageBC = ReadU16(bank, 5115, 0.1);
+        GeneratorVoltageCA = ReadU16(bank, 5116, 0.1);
+        GeneratorCurrentA = ReadU16(bank, 5117, 0.1);
+        GeneratorCurrentB = ReadU16(bank, 5118, 0.1);
+        GeneratorCurrentC = ReadU16(bank, 5119, 0.1);
+        GeneratorFrequency = ReadU16(bank, 5120, 0.01);
+        InverterVoltageA = ReadU16(bank, 5121, 0.1);
+        InverterVoltageB = ReadU16(bank, 5122, 0.1);
+        InverterVoltageC = ReadU16(bank, 5123, 0.1);
+        InverterVoltageAB = ReadU16(bank, 5124, 0.1);
+        InverterVoltageBC = ReadU16(bank, 5125, 0.1);
+        InverterVoltageCA = ReadU16(bank, 5126, 0.1);
+        InverterFrequency = ReadU16(bank, 5127, 0.01);
+        Temperature1 = ReadU16(bank, 5176, 0.1) - 100.0;
+        Temperature2 = ReadU16(bank, 5177, 0.1) - 100.0;
+        Temperature3 = ReadU16(bank, 5178, 0.1) - 100.0;
+        BreakerStatus = bank.Read(5179);
+        Alarm1 = bank.Read(5180);
+        Alarm2 = bank.Read(5181);
+        Fault1 = bank.Read(5182);
+        Fault2 = bank.Read(5183);
+        Fault3 = bank.Read(5184);
+        Fault4 = bank.Read(5185);
+        InternalFanAd = bank.Read(5186);
+        ExternalFanAd = bank.Read(5187);
+        TestState = bank.Read(5188);
+        Rsd1 = bank.Read(5195);
+        Rsd2 = bank.Read(5196);
+        Rsd3 = bank.Read(5197);
+        Rsd4 = bank.Read(5198);
+        Rsd5 = bank.Read(5199);
+        ParallelVoltageA = ReadU16(bank, 5200, 0.1);
+        ParallelVoltageB = ReadU16(bank, 5201, 0.1);
+        ParallelVoltageC = ReadU16(bank, 5202, 0.1);
+        ParallelVoltageAB = ReadU16(bank, 5203, 0.1);
+        ParallelVoltageBC = ReadU16(bank, 5204, 0.1);
+        ParallelVoltageCA = ReadU16(bank, 5205, 0.1);
+        ParallelCurrentA = ReadU16(bank, 5206, 0.1);
+        ParallelCurrentB = ReadU16(bank, 5207, 0.1);
+        ParallelCurrentC = ReadU16(bank, 5208, 0.1);
+        ParallelFrequency = ReadU16(bank, 5209, 0.01);
+        GridTotalPower = ReadU32LowFirst(bank, 5128, 1.0);
+        GridPhaseAPower = ReadU32LowFirst(bank, 5130, 1.0);
+        GridPhaseBPower = ReadU32LowFirst(bank, 5132, 1.0);
+        GridPhaseCPower = ReadU32LowFirst(bank, 5134, 1.0);
+        GridTotalReactivePower = ReadU32LowFirst(bank, 5136, 1.0);
+        GridPhaseAReactivePower = ReadU32LowFirst(bank, 5138, 1.0);
+        GridPhaseBReactivePower = ReadU32LowFirst(bank, 5140, 1.0);
+        GridPhaseCReactivePower = ReadU32LowFirst(bank, 5142, 1.0);
+        GridDailySoldEnergy = ReadU32LowFirst(bank, 5144, 0.1);
+        GridDailyPurchasedEnergy = ReadU32LowFirst(bank, 5146, 0.1);
+        GridTotalSoldEnergy = ReadU32LowFirst(bank, 5148, 0.1);
+        GridTotalPurchasedEnergy = ReadU32LowFirst(bank, 5150, 0.1);
+        GeneratorTotalPower = ReadU32LowFirst(bank, 5152, 1.0);
+        GeneratorPhaseAPower = ReadU32LowFirst(bank, 5154, 1.0);
+        GeneratorPhaseBPower = ReadU32LowFirst(bank, 5156, 1.0);
+        GeneratorPhaseCPower = ReadU32LowFirst(bank, 5158, 1.0);
+        GeneratorTotalReactivePower = ReadU32LowFirst(bank, 5160, 1.0);
+        GeneratorPhaseAReactivePower = ReadU32LowFirst(bank, 5162, 1.0);
+        GeneratorPhaseBReactivePower = ReadU32LowFirst(bank, 5164, 1.0);
+        GeneratorPhaseCReactivePower = ReadU32LowFirst(bank, 5166, 1.0);
+        GeneratorDailySoldEnergy = ReadU32LowFirst(bank, 5168, 0.1);
+        GeneratorDailyPurchasedEnergy = ReadU32LowFirst(bank, 5170, 0.1);
+        GeneratorTotalSoldEnergy = ReadU32LowFirst(bank, 5172, 0.1);
+        GeneratorTotalPurchasedEnergy = ReadU32LowFirst(bank, 5174, 0.1);
+        GridRelayStatus = ReadU32LowFirst(bank, 5189);
+        GeneratorRelayStatus = ReadU32LowFirst(bank, 5191);
+        ParallelRelayStatus = ReadU32LowFirst(bank, 5193);
+        ParallelTotalPower = ReadU32LowFirst(bank, 5210, 1.0);
+        ParallelPhaseAPower = ReadU32LowFirst(bank, 5212, 1.0);
+        ParallelPhaseBPower = ReadU32LowFirst(bank, 5214, 1.0);
+        ParallelPhaseCPower = ReadU32LowFirst(bank, 5216, 1.0);
+        ParallelTotalReactivePower = ReadU32LowFirst(bank, 5218, 1.0);
+        ParallelPhaseAReactivePower = ReadU32LowFirst(bank, 5220, 1.0);
+        ParallelPhaseBReactivePower = ReadU32LowFirst(bank, 5222, 1.0);
+        ParallelPhaseCReactivePower = ReadU32LowFirst(bank, 5224, 1.0);
+        ParallelDailySoldEnergy = ReadU32LowFirst(bank, 5226, 0.1);
+        ParallelDailyPurchasedEnergy = ReadU32LowFirst(bank, 5228, 0.1);
+        ParallelTotalSoldEnergy = ReadU32LowFirst(bank, 5230, 0.1);
+        ParallelTotalPurchasedEnergy = ReadU32LowFirst(bank, 5232, 0.1);
     }
+
+    private static void WriteU16(RegisterBank bank, int address, double value, double scale)
+        => bank.Write(address, (ushort)Math.Clamp((int)Math.Round(value / scale), 0, ushort.MaxValue));
+
+    private static double ReadU16(RegisterBank bank, int address, double scale)
+        => Math.Round(bank.Read(address) * scale, 3);
+
+    private static void WriteU32LowFirst(RegisterBank bank, int address, double value, double scale)
+    {
+        uint raw = (uint)Math.Clamp(Math.Round(value / scale), 0, uint.MaxValue);
+        WriteU32LowFirst(bank, address, raw);
+    }
+
+    private static void WriteU32LowFirst(RegisterBank bank, int address, uint value)
+    {
+        bank.Write(address, (ushort)(value & 0xFFFF));
+        bank.Write(address + 1, (ushort)(value >> 16));
+    }
+
+    private static double ReadU32LowFirst(RegisterBank bank, int address, double scale)
+        => Math.Round(ReadU32LowFirst(bank, address) * scale, 3);
+
+    private static uint ReadU32LowFirst(RegisterBank bank, int address)
+        => (uint)(bank.Read(address) | (bank.Read(address + 1) << 16));
 }

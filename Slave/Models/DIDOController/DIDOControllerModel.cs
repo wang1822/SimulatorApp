@@ -8,7 +8,7 @@ namespace SimulatorApp.Slave.Models.DIDOController;
 /// </summary>
 public class DIDOControllerModel : DeviceModelBase
 {
-    public override string DeviceName => "DI/DO 动环控制器";
+    public override string DeviceName => "GS215DI/DO(ing)";
     public override int BaseAddress    => 60544;
     public override int RegisterCount  => 41;
 

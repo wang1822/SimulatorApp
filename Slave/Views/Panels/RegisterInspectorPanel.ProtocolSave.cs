@@ -143,11 +143,6 @@ public partial class RegisterInspectorPanel
         {
             rowIndex++;
             var chineseName = row.ChineseName?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(chineseName))
-            {
-                InlineSaveErrorTextBlock.Text = $"第 {rowIndex} 行中文名为必填。";
-                return;
-            }
 
             previewRows.Add(new ProtocolPreviewRow
             {
@@ -163,7 +158,7 @@ public partial class RegisterInspectorPanel
 
         if (previewRows.Count == 0)
         {
-            InlineSaveErrorTextBlock.Text = "至少需要一条有效寄存器定义（地址和中文名必填）。";
+            InlineSaveErrorTextBlock.Text = "至少需要一条有效寄存器定义（地址必填）。";
             return;
         }
 

@@ -11,7 +11,7 @@ namespace SimulatorApp.Slave.ViewModels;
 public partial class GasDetectorViewModel : DeviceViewModelBase
 {
     private readonly GasDetectorModel _model = new();
-    public override string DeviceName => "气体检测";
+    public override string DeviceName => "GS215气体检测(ing)";
     protected override DeviceModelBase Model => _model;
 
     public GasDetectorViewModel(RegisterBank bank, RegisterMapService mapService)

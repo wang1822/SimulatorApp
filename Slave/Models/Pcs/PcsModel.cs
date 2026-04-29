@@ -8,7 +8,7 @@ namespace SimulatorApp.Slave.Models.Pcs;
 /// </summary>
 public class PcsModel : DeviceModelBase
 {
-    public override string DeviceName => "PCS 储能变流器";
+    public override string DeviceName => "GS215PCS";
     public override int BaseAddress => 3000;
     public override int RegisterCount => 137;
 

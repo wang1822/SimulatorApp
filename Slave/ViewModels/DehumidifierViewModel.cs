@@ -12,7 +12,7 @@ namespace SimulatorApp.Slave.ViewModels;
 public partial class DehumidifierViewModel : DeviceViewModelBase
 {
     private readonly DehumidifierModel _model = new();
-    public override string DeviceName => "除湿机";
+    public override string DeviceName => "GS215除湿机";
     protected override DeviceModelBase Model => _model;
 
     public DehumidifierViewModel(RegisterBank bank, RegisterMapService mapService) : base(bank, mapService)

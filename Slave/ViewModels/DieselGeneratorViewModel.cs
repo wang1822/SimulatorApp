@@ -11,7 +11,7 @@ namespace SimulatorApp.Slave.ViewModels;
 public partial class DieselGeneratorViewModel : DeviceViewModelBase
 {
     private readonly DieselGeneratorModel _model = new();
-    public override string DeviceName => "柴发";
+    public override string DeviceName => "GS215柴发(ing)";
     protected override DeviceModelBase Model => _model;
 
     public DieselGeneratorViewModel(RegisterBank bank, RegisterMapService mapService)

@@ -121,10 +121,46 @@
                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
                               VerticalAlignment="Center" Margin="4,0,0,0"
                               ToolTip="勾选后：启动监听时寄存器生效，定时模拟运行，导出时包含此设备"/>
-                    <TextBlock Text="{Binding DeviceName}"
-                               Foreground="{StaticResource TextPrimaryBrush}"
-                               FontSize="12" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" Margin="0,0,4,0"/>
+                    <Grid Margin="0,0,4,0" MouseLeftButtonDown="ImportedDeviceNameText_MouseLeftButtonDown">
+                        <TextBlock Text="{Binding DeviceName}"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="12" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEditingName}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBox Text="{Binding EditingDeviceName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 Background="#0F172A"
+                                 BorderBrush="#3B82F6"
+                                 BorderThickness="1"
+                                 FontSize="12"
+                                 Padding="3,1"
+                                 MinWidth="90"
+                                 VerticalAlignment="Center"
+                                 KeyDown="ImportedDeviceNameEditor_KeyDown"
+                                 LostFocus="ImportedDeviceNameEditor_LostFocus"
+                                 IsVisibleChanged="ImportedDeviceNameEditor_IsVisibleChanged">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEditingName}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                    </Grid>
                 </DockPanel>
             </Border>
         </DataTemplate>
@@ -260,6 +296,7 @@
                                                           ItemsSource="{Binding DataContext.AvailableComPorts,
                                                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                           SelectedItem="{Binding ComPort, Mode=TwoWay}"
+                                                          DropDownOpened="RtuComPortCombo_DropDownOpened"
                                                           Style="{StaticResource DataComboBoxStyle}"
                                                           Margin="0,0,4,0"/>
                                                 <ComboBox Width="76" Height="22"
@@ -383,7 +420,7 @@
                             <Expander Style="{StaticResource ImportExpanderStyle}"
                                       IsExpanded="False" Padding="0,4,0,0">
                                 <Expander.Header>
-                                    <TextBlock Text="设备列表(ING)"
+                                    <TextBlock Text="设备列表(ing)"
                                                Foreground="{StaticResource TextSecondaryBrush}"
                                                FontSize="11" FontWeight="SemiBold"/>
                                 </Expander.Header>

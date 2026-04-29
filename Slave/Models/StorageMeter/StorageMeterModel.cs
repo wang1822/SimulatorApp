@@ -9,7 +9,7 @@ namespace SimulatorApp.Slave.Models.StorageMeter;
 /// </summary>
 public class StorageMeterModel : ExternalMeterModel
 {
-    public override string DeviceName => "储能电表";
+    public override string DeviceName => "GS215电表(ing)";
     public override int BaseAddress    => 48256;
     public override int RegisterCount  => 178;
 

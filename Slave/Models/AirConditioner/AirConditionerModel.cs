@@ -8,7 +8,7 @@ namespace SimulatorApp.Slave.Models.AirConditioner;
 /// </summary>
 public class AirConditionerModel : DeviceModelBase
 {
-    public override string DeviceName => "空调";
+    public override string DeviceName => "GS215空调";
     public override int BaseAddress    => 52352;
     public override int RegisterCount  => 73;
 

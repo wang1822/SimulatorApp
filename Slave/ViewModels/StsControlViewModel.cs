@@ -10,7 +10,7 @@ namespace SimulatorApp.Slave.ViewModels;
 public partial class StsControlViewModel : DeviceViewModelBase
 {
     private readonly StsControlModel _model = new();
-    public override string DeviceName => "STS 控制IO卡";
+    public override string DeviceName => "GS215STSIO板卡(ing)";
     protected override DeviceModelBase Model => _model;
 
     public StsControlViewModel(RegisterBank bank, RegisterMapService mapService)

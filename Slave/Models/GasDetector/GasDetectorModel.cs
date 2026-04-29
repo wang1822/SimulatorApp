@@ -8,7 +8,7 @@ namespace SimulatorApp.Slave.Models.GasDetector;
 /// </summary>
 public class GasDetectorModel : DeviceModelBase
 {
-    public override string DeviceName => "气体检测";
+    public override string DeviceName => "GS215气体检测(ing)";
     public override int BaseAddress    => 53760;
     public override int RegisterCount  => 16;
 

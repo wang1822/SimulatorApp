@@ -14,7 +14,7 @@ public partial class PcsViewModel : DeviceViewModelBase
 {
     private readonly PcsModel _model = new();
 
-    public override string DeviceName => "PCS 储能变流器";
+    public override string DeviceName => "GS215PCS";
     protected override DeviceModelBase Model => _model;
 
     public PcsViewModel(RegisterBank bank, RegisterMapService mapService)

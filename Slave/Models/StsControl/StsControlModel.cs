@@ -8,7 +8,7 @@ namespace SimulatorApp.Slave.Models.StsControl;
 /// </summary>
 public class StsControlModel : DeviceModelBase
 {
-    public override string DeviceName => "STS 控制IO卡";
+    public override string DeviceName => "GS215STS IO板卡";
     public override int BaseAddress    => 1920;
     public override int RegisterCount  => 194;
 

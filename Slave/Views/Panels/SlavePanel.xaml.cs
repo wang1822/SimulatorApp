@@ -90,6 +90,62 @@ public partial class SlavePanel : UserControl
             vm.RemoveImportedDeviceCommand.Execute(selected);
     }
 
+    private void ImportedDeviceNameText_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount < 2)
+            return;
+
+        if (sender is not FrameworkElement { DataContext: ImportedDeviceViewModel vm })
+            return;
+
+        vm.BeginRename();
+        e.Handled = true;
+    }
+
+    private void ImportedDeviceNameEditor_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true && sender is TextBox editor)
+            FocusImportedDeviceNameEditor(editor);
+    }
+
+    private async void ImportedDeviceNameEditor_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox { DataContext: ImportedDeviceViewModel vm })
+            await vm.CommitRenameAsync();
+    }
+
+    private async void ImportedDeviceNameEditor_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: ImportedDeviceViewModel vm })
+            return;
+
+        if (e.Key == Key.Enter)
+        {
+            await vm.CommitRenameAsync();
+            Keyboard.ClearFocus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            vm.CancelRename();
+            Keyboard.ClearFocus();
+            e.Handled = true;
+        }
+    }
+
+    private void FocusImportedDeviceNameEditor(TextBox editor)
+    {
+        editor.Dispatcher.BeginInvoke(() =>
+        {
+            if (!editor.IsVisible)
+                return;
+
+            editor.Focus();
+            editor.SelectAll();
+            Keyboard.Focus(editor);
+        }, DispatcherPriority.Input);
+    }
+
     private async void StartAllListeners_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not SlaveViewModel vm)
@@ -117,6 +173,12 @@ public partial class SlavePanel : UserControl
 
         await vm.ToggleListenerAsync(listener);
         LogListenerSnapshot(vm, "toggle-single");
+    }
+
+    private void RtuComPortCombo_DropDownOpened(object sender, EventArgs e)
+    {
+        if (DataContext is SlaveViewModel vm)
+            vm.RefreshComPorts();
     }
 
     private void DeviceListChild_PreviewMouseWheel(object sender, MouseWheelEventArgs e)

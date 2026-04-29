@@ -8,7 +8,7 @@ namespace SimulatorApp.Slave.Models.Bms;
 /// </summary>
 public class BmsModel : DeviceModelBase
 {
-    public override string DeviceName => "BMS 电池管理系统";
+    public override string DeviceName => "GS215BMS(ing)";
     public override int BaseAddress    => 23680;
     public override int RegisterCount  => 110;
 

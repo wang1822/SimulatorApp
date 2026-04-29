@@ -5,103 +5,567 @@
              Background="{StaticResource SurfaceBrush}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="12,8">
-            <TextBlock Text="【遥测数值】" Style="{StaticResource SectionTitleStyle}"/>
+            <TextBlock Text="【运行状态】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
             <Separator Style="{StaticResource DividerStyle}"/>
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" MinWidth="160"/>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
                     <ColumnDefinition Width="110"/>
-                    <ColumnDefinition Width="55"/>
-                    <ColumnDefinition Width="20"/>
-                    <ColumnDefinition Width="Auto" MinWidth="160"/>
+                    <ColumnDefinition Width="54"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
                     <ColumnDefinition Width="110"/>
-                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="54"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
-                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
-                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
                 </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="运行状态(5100)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding OperatingState, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+            <TextBlock Text="【设置参数】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="测试步骤设置(5080)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TestStateSet, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="主路A相电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding MainPhaseVoltA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="厂内初测(5081)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding FactoryTestEntry, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="电网电压校正(5082)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding GridVoltageCalibration, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="发电机电压校正(5083)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding GeneratorVoltageCalibration, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="逆变电压校正(5084)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding InverterVoltageCalibration, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="电网电流校正(5085)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding GridCurrentCalibration, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="发电机电流校正(5086)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding GeneratorCurrentCalibration, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="发电量校正(5087)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding EnergyCalibration, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="风扇测试(5093)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding FanTest, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+            <TextBlock Text="【电网侧】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="电网电压A(5101)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GridVoltageA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
                 <TextBlock Grid.Row="0" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="主路B相电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding MainPhaseVoltB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="电网电压B(5102)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding GridVoltageB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="电网电压C(5103)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding GridVoltageC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
                 <TextBlock Grid.Row="1" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="主路C相电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding MainPhaseVoltC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="2" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
-
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="主路频率" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding MainFrequency, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="3" Grid.Column="2" Text="Hz" Style="{StaticResource LabelStyle}"/>
-
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="备路A相电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding BackupPhaseVoltA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="4" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
-
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="备路B相电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding BackupPhaseVoltB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="5" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
-
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="备路C相电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding BackupPhaseVoltC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="6" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
-
-                <!-- 右列 -->
-                <TextBlock Grid.Row="0" Grid.Column="4" Text="备路频率" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="0" Grid.Column="5" Text="{Binding BackupFrequency, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="0" Grid.Column="6" Text="Hz" Style="{StaticResource LabelStyle}"/>
-
-                <TextBlock Grid.Row="1" Grid.Column="4" Text="负载A相电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="1" Grid.Column="5" Text="{Binding LoadPhaseVoltA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="电网电压AB(5104)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding GridVoltageAB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
                 <TextBlock Grid.Row="1" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="4" Text="负载B相电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="2" Grid.Column="5" Text="{Binding LoadPhaseVoltB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="电网电压BC(5105)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding GridVoltageBC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="电网电压CA(5106)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding GridVoltageCA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
                 <TextBlock Grid.Row="2" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="4" Text="负载C相电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="3" Grid.Column="5" Text="{Binding LoadPhaseVoltC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="3" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="电网电流A(5107)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding GridCurrentA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="4" Grid.Column="4" Text="负载A相电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="4" Grid.Column="5" Text="{Binding LoadCurrentA, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="4" Grid.Column="6" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="电网电流B(5108)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding GridCurrentB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Text="A" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="5" Grid.Column="4" Text="负载B相电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="5" Grid.Column="5" Text="{Binding LoadCurrentB, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="5" Grid.Column="6" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="电网电流C(5109)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding GridCurrentC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="6" Grid.Column="4" Text="负载C相电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="6" Grid.Column="5" Text="{Binding LoadCurrentC, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="6" Grid.Column="6" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="电网频率(5110)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding GridFrequency, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Text="Hz" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="电网总功率(5128-5129)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding GridTotalPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="4" Text="电网A相功率(5130-5131)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="5" Text="{Binding GridPhaseAPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="电网B相功率(5132-5133)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding GridPhaseBPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="4" Text="电网C相功率(5134-5135)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="5" Text="{Binding GridPhaseCPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="电网总无功(5136-5137)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding GridTotalReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="4" Text="电网A相无功(5138-5139)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="5" Text="{Binding GridPhaseAReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="电网B相无功(5140-5141)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding GridPhaseBReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="8" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="8" Grid.Column="4" Text="电网C相无功(5142-5143)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="8" Grid.Column="5" Text="{Binding GridPhaseCReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="8" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="日卖电量(5144-5145)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding GridDailySoldEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="9" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="9" Grid.Column="4" Text="日购电量(5146-5147)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="5" Text="{Binding GridDailyPurchasedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="9" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="总卖电量(5148-5149)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding GridTotalSoldEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="10" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="10" Grid.Column="4" Text="总购电量(5150-5151)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="10" Grid.Column="5" Text="{Binding GridTotalPurchasedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="10" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
             </Grid>
-
-            <TextBlock Text="【运行状态】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <TextBlock Text="【发电机侧】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
             <Separator Style="{StaticResource DividerStyle}"/>
-            <StackPanel Orientation="Horizontal" Margin="0,4">
-                <TextBlock Text="STS运行模式：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <ComboBox Width="130" Style="{StaticResource DataComboBoxStyle}"
-                          ItemsSource="{Binding StsOperatingModeItems}" DisplayMemberPath="Display"
-                          SelectedValuePath="Value" SelectedValue="{Binding StsOperatingMode, Mode=TwoWay}"/>
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="发电机电压A(5111)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GeneratorVoltageA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="发电机电压B(5112)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding GeneratorVoltageB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="发电机电压C(5113)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding GeneratorVoltageC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="发电机电压AB(5114)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding GeneratorVoltageAB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="发电机电压BC(5115)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding GeneratorVoltageBC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="发电机电压CA(5116)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding GeneratorVoltageCA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="发电机电流A(5117)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding GeneratorCurrentA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="发电机电流B(5118)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding GeneratorCurrentB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="发电机电流C(5119)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding GeneratorCurrentC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="发电机频率(5120)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding GeneratorFrequency, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Text="Hz" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="发电机总功率(5152-5153)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding GeneratorTotalPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="4" Text="发电机A相功率(5154-5155)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="5" Text="{Binding GeneratorPhaseAPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="发电机B相功率(5156-5157)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding GeneratorPhaseBPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="4" Text="发电机C相功率(5158-5159)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="5" Text="{Binding GeneratorPhaseCPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="发电机总无功(5160-5161)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding GeneratorTotalReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="4" Text="发电机A相无功(5162-5163)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="5" Text="{Binding GeneratorPhaseAReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="发电机B相无功(5164-5165)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding GeneratorPhaseBReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="8" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="8" Grid.Column="4" Text="发电机C相无功(5166-5167)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="8" Grid.Column="5" Text="{Binding GeneratorPhaseCReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="8" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="日卖电量(5168-5169)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding GeneratorDailySoldEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="9" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="9" Grid.Column="4" Text="日购电量(5170-5171)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="5" Text="{Binding GeneratorDailyPurchasedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="9" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="总卖电量(5172-5173)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding GeneratorTotalSoldEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="10" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="10" Grid.Column="4" Text="总购电量(5174-5175)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="10" Grid.Column="5" Text="{Binding GeneratorTotalPurchasedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="10" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+            <TextBlock Text="【逆变侧】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="逆变电压A(5121)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding InverterVoltageA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="逆变电压B(5122)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding InverterVoltageB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="逆变电压C(5123)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding InverterVoltageC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="逆变电压AB(5124)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding InverterVoltageAB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="逆变电压BC(5125)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding InverterVoltageBC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="逆变电压CA(5126)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding InverterVoltageCA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="逆变频率(5127)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding InverterFrequency, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="Hz" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+            <TextBlock Text="【并联口】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="并联口电压A(5200)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ParallelVoltageA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="并联口电压B(5201)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding ParallelVoltageB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="并联口电压C(5202)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ParallelVoltageC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="并联口电压AB(5203)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding ParallelVoltageAB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="并联口电压BC(5204)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ParallelVoltageBC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="并联口电压CA(5205)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding ParallelVoltageCA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="并联口电流A(5206)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ParallelCurrentA, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="并联口电流B(5207)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding ParallelCurrentB, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="并联口电流C(5208)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ParallelCurrentC, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="并联口频率(5209)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding ParallelFrequency, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Text="Hz" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="并联口总功率(5210-5211)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding ParallelTotalPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="4" Text="并联口A相功率(5212-5213)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="5" Text="{Binding ParallelPhaseAPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="并联口B相功率(5214-5215)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ParallelPhaseBPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="4" Text="并联口C相功率(5216-5217)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="5" Text="{Binding ParallelPhaseCPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="并联口总无功(5218-5219)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding ParallelTotalReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="4" Text="并联口A相无功(5220-5221)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="5" Text="{Binding ParallelPhaseAReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="并联口B相无功(5222-5223)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ParallelPhaseBReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="8" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="8" Grid.Column="4" Text="并联口C相无功(5224-5225)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="8" Grid.Column="5" Text="{Binding ParallelPhaseCReactivePower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="8" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="日卖电量(5226-5227)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding ParallelDailySoldEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="9" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="9" Grid.Column="4" Text="日购电量(5228-5229)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="5" Text="{Binding ParallelDailyPurchasedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="9" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="总卖电量(5230-5231)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding ParallelTotalSoldEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="10" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="10" Grid.Column="4" Text="总购电量(5232-5233)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="10" Grid.Column="5" Text="{Binding ParallelTotalPurchasedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="10" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+            <TextBlock Text="【状态量】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="Auto" MinWidth="190"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="温度1(5176)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Temperature1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="温度2(5177)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding Temperature2, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="温度3(5178)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Temperature3, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="断路器状态(5179)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding BreakerStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="内部风扇AD(5186)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding InternalFanAd, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="外部风扇AD(5187)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding ExternalFanAd, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="测试步骤(5188)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding TestState, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="电网继电器状态(5189-5190)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding GridRelayStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="发电机继电器状态(5191-5192)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding GeneratorRelayStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="并联继电器状态(5193-5194)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding ParallelRelayStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="RSD1(5195)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Rsd1, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="4" Text="RSD2(5196)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="5" Text="{Binding Rsd2, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="RSD3(5197)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Rsd3, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="4" Text="RSD4(5198)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="5" Text="{Binding Rsd4, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="RSD5(5199)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Rsd5, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+            </Grid>
 
             <TextBlock Text="【故障/告警注入】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
             <Separator Style="{StaticResource DividerStyle}"/>
-            <TextBlock Text="告警字：" Style="{StaticResource LabelStyle}" Margin="0,4,0,2"/>
-            <ctrl:AlarmCheckList DataContext="{Binding AlarmItems}"/>
-            <TextBlock Text="故障字：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
-            <ctrl:AlarmCheckList DataContext="{Binding FaultItems}"/>
+            <TextBlock Text="告警信息第1字(5180)：" Style="{StaticResource LabelStyle}" Margin="0,4,0,2"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Alarm1Items}"/>
+            <TextBlock Text="告警信息第2字(5181)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Alarm2Items}"/>
+            <TextBlock Text="故障信息第1字(5182)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault1Items}"/>
+            <TextBlock Text="故障信息第2字(5183)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault2Items}"/>
+            <TextBlock Text="故障信息第3字(5184)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault3Items}"/>
+            <TextBlock Text="故障信息第4字(5185)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault4Items}"/>
 
             <WrapPanel Orientation="Horizontal" Margin="0,12,0,4">
-                <Button Content="🎲 一键生成数据" Command="{Binding GenerateDataCommand}"
+                <Button Content="一键生成数据" Command="{Binding GenerateDataCommand}"
                         Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
-                <Button Content="🗑 清除所有告警" Command="{Binding ClearAlarmsCommand}"
+                <Button Content="清除所有告警" Command="{Binding ClearAlarmsCommand}"
                         Style="{StaticResource DangerButtonStyle}"/>
             </WrapPanel>
         </StackPanel>

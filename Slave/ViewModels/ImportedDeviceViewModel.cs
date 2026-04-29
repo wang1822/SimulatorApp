@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SimulatorApp.Shared.Logging;
 using SimulatorApp.Shared.Services;
 using SimulatorApp.Slave.Models;
 using SimulatorApp.Slave.Services;
@@ -31,7 +32,24 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
     protected override DeviceModelBase Model     => _nullModel;
     protected override void            SyncToModel() { }
 
-    public override string DeviceName { get; }
+    private string _deviceName = string.Empty;
+    private string _editingDeviceName = string.Empty;
+    private string _nameBeforeEdit = string.Empty;
+    private bool _isEditingName;
+
+    public override string DeviceName => _deviceName;
+
+    public string EditingDeviceName
+    {
+        get => _editingDeviceName;
+        set => SetProperty(ref _editingDeviceName, value);
+    }
+
+    public bool IsEditingName
+    {
+        get => _isEditingName;
+        set => SetProperty(ref _isEditingName, value);
+    }
 
     /// <summary>解析后的寄存器行，供面板 DataGrid 绑定</summary>
     public ObservableCollection<ImportedRegisterRow> Rows { get; } = new();
@@ -107,7 +125,8 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
         : base(bank, mapSvc)
     {
         int n = System.Threading.Interlocked.Increment(ref _counter);
-        DeviceName = string.IsNullOrWhiteSpace(deviceName) ? $"协议导入 #{n}" : deviceName;
+        SetDeviceName(string.IsNullOrWhiteSpace(deviceName) ? $"协议导入 #{n}" : deviceName.Trim());
+        EditingDeviceName = DeviceName;
 
         foreach (var (chinese, english, addr, rw, range, unit, note) in rows)
             Rows.Add(MakeRow(chinese, english, addr, rw, range, unit, note));
@@ -152,6 +171,64 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
                     _ = DbService.UpdateRowMetadataAsync(DbId, capturedAddr, cn, en);
             },
             onCheckedChanged: () => OnPropertyChanged(nameof(IsAllChecked)));
+    }
+
+    public void BeginRename()
+    {
+        if (IsEditingName) return;
+        _nameBeforeEdit = DeviceName;
+        EditingDeviceName = DeviceName;
+        IsEditingName = true;
+    }
+
+    public void CancelRename()
+    {
+        EditingDeviceName = _nameBeforeEdit.Length == 0 ? DeviceName : _nameBeforeEdit;
+        IsEditingName = false;
+    }
+
+    public async System.Threading.Tasks.Task CommitRenameAsync()
+    {
+        if (!IsEditingName) return;
+
+        var oldName = _nameBeforeEdit.Length == 0 ? DeviceName : _nameBeforeEdit;
+        var newName = (EditingDeviceName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            EditingDeviceName = oldName;
+            IsEditingName = false;
+            return;
+        }
+
+        if (string.Equals(newName, DeviceName, StringComparison.Ordinal))
+        {
+            EditingDeviceName = DeviceName;
+            IsEditingName = false;
+            return;
+        }
+
+        SetDeviceName(newName);
+        EditingDeviceName = newName;
+        IsEditingName = false;
+
+        if (DbService == null || DbId <= 0)
+            return;
+
+        try
+        {
+            await DbService.UpdateDeviceNameAsync(DbId, newName);
+        }
+        catch (Exception ex)
+        {
+            SetDeviceName(oldName);
+            EditingDeviceName = oldName;
+            AppLogger.Warn($"协议导入设备重命名保存失败：Id={DbId}, {ex.Message}");
+        }
+    }
+
+    private void SetDeviceName(string value)
+    {
+        SetProperty(ref _deviceName, value, nameof(DeviceName));
     }
 
     public override void GenerateData() { }

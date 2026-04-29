@@ -11,6 +11,7 @@ public interface ISlaveProtocolDbService
     Task InitializeAsync();
     Task<int> SaveDeviceConfigAsync(SlaveDeviceConfig config, IEnumerable<ProtocolRow> rows);
     Task DeleteDeviceConfigAsync(int id);
+    Task UpdateDeviceNameAsync(int id, string name);
     Task<List<(SlaveDeviceConfig Config, List<ProtocolRow> Rows, Dictionary<int, ushort> CurrentValues)>> GetAllDeviceConfigsAsync();
     Task UpdateRowCurrentValueAsync(int configId, int address, ushort value);
     Task DeleteRowAsync(int configId, int address);
@@ -158,6 +159,21 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
         cmd.Parameters.AddWithValue("@id", id);
         await cmd.ExecuteNonQueryAsync();
         AppLogger.Info($"协议设备配置已从数据库删除：Id={id}");
+    }
+
+    public async Task UpdateDeviceNameAsync(int id, string name)
+    {
+        var trimmed = (name ?? string.Empty).Trim();
+        if (id <= 0 || string.IsNullOrWhiteSpace(trimmed))
+            return;
+
+        await using var conn = new SqlConnection(_cs);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand("UPDATE SlaveDeviceConfigs SET Name=@name WHERE Id=@id", conn);
+        cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@name", trimmed);
+        await cmd.ExecuteNonQueryAsync();
+        AppLogger.Info($"协议设备名称已更新：Id={id}, Name={trimmed}");
     }
 
     public async Task<List<(SlaveDeviceConfig Config, List<ProtocolRow> Rows, Dictionary<int, ushort> CurrentValues)>> GetAllDeviceConfigsAsync()

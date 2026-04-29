@@ -26,7 +26,7 @@ public partial class SlaveListenerConfig : ObservableObject
     [ObservableProperty] private int    _port          = 502;
 
     // RTU
-    [ObservableProperty] private string _comPort   = "COM3";
+    [ObservableProperty] private string _comPort   = string.Empty;
     [ObservableProperty] private int    _baudRate  = 9600;
 
     // 公共

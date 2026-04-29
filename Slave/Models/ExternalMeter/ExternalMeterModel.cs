@@ -9,7 +9,7 @@ namespace SimulatorApp.Slave.Models.ExternalMeter;
 /// </summary>
 public class ExternalMeterModel : DeviceModelBase
 {
-    public override string DeviceName => "外部电表";
+    public override string DeviceName => "GS215外部电表(ing)";
     public override int BaseAddress    => 384;
     public override int RegisterCount  => 178;
 

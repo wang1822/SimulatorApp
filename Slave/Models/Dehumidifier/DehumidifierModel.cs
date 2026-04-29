@@ -8,7 +8,7 @@ namespace SimulatorApp.Slave.Models.Dehumidifier;
 /// </summary>
 public class DehumidifierModel : DeviceModelBase
 {
-    public override string DeviceName => "除湿机";
+    public override string DeviceName => "GS215除湿机";
     public override int BaseAddress    => 4097;   // 0x1001
     public override int RegisterCount  => 32;
 

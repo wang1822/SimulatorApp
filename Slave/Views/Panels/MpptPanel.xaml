@@ -5,95 +5,302 @@
              Background="{StaticResource SurfaceBrush}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="12,8">
-            <TextBlock Text="【遥测数值】" Style="{StaticResource SectionTitleStyle}"/>
+            <TextBlock Text="【设置参数】" Style="{StaticResource SectionTitleStyle}"/>
             <Separator Style="{StaticResource DividerStyle}"/>
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" MinWidth="160"/>
+                    <ColumnDefinition Width="Auto" MinWidth="170"/>
                     <ColumnDefinition Width="110"/>
-                    <ColumnDefinition Width="50"/>
+                    <ColumnDefinition Width="54"/>
                     <ColumnDefinition Width="20"/>
-                    <ColumnDefinition Width="Auto" MinWidth="160"/>
+                    <ColumnDefinition Width="Auto" MinWidth="170"/>
                     <ColumnDefinition Width="110"/>
-                    <ColumnDefinition Width="50"/>
+                    <ColumnDefinition Width="54"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
-                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
-                    <RowDefinition Height="34"/> <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
                 </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="MPPT路数(4022)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MpptCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="路" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="输出电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding OutputVolt, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="0" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="最大光伏功率(4035)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding MaxPvPowerPercent, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="%" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="输出电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding OutputCurrent, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="最大MPPT电流(4036)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxMpptCurrent, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
                 <TextBlock Grid.Row="1" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="PV总功率" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding PVTotalPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="2" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="开关机使能(4039)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="1" Grid.Column="5" Width="110" Style="{StaticResource DataComboBoxStyle}"
+                          ItemsSource="{Binding PowerEnableItems}" DisplayMemberPath="Display"
+                          SelectedValuePath="Value" SelectedValue="{Binding PowerEnable, Mode=TwoWay}"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="PV1直流电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding DCVolt1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="3" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="恢复出厂(4040)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="2" Grid.Column="1" Width="110" Style="{StaticResource DataComboBoxStyle}"
+                          ItemsSource="{Binding FactoryResetItems}" DisplayMemberPath="Display"
+                          SelectedValuePath="Value" SelectedValue="{Binding FactoryResetEnable, Mode=TwoWay}"/>
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="PV1直流电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding DCCurrent1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="4" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="自检时间(4041)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding SelfCheckTime, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="s" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="散热片温度" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding HeatSinkTemp, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="5" Grid.Column="2" Text="℃" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="RISO使能(4042)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="3" Grid.Column="1" Width="110" Style="{StaticResource DataComboBoxStyle}"
+                          ItemsSource="{Binding EnableItems}" DisplayMemberPath="Display"
+                          SelectedValuePath="Value" SelectedValue="{Binding RisoEnable, Mode=TwoWay}"/>
 
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="当日PV发电量" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding DailyPVGenTotal, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="6" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="拉弧模式(4043)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="3" Grid.Column="5" Width="110" Style="{StaticResource DataComboBoxStyle}"
+                          ItemsSource="{Binding SolarArcFaultItems}" DisplayMemberPath="Display"
+                          SelectedValuePath="Value" SelectedValue="{Binding SolarArcFaultMode, Mode=TwoWay}"/>
 
-                <!-- 右列 -->
-                <TextBlock Grid.Row="0" Grid.Column="4" Text="PV2直流电压" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="0" Grid.Column="5" Text="{Binding DCVolt2, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="发电量修正(4044)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding PvEnergyCorrectionPercent, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="%" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="TEST MODE(4045)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding TestMode, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="MPPT功能(4046)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding MpptFunction, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+
+            <TextBlock Text="【运行遥测】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="170"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto" MinWidth="170"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="运行状态(4150)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="0" Grid.Column="1" Width="110" Style="{StaticResource DataComboBoxStyle}"
+                          ItemsSource="{Binding MpptModeItems}" DisplayMemberPath="Display"
+                          SelectedValuePath="Value" SelectedValue="{Binding MpptOperatingMode, Mode=TwoWay}"/>
+
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="输出电压(4151)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding OutputVolt, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
                 <TextBlock Grid.Row="0" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="4" Text="PV2直流电流" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="1" Grid.Column="5" Text="{Binding DCCurrent2, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
-                <TextBlock Grid.Row="1" Grid.Column="6" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="输出电流(4152)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding OutputCurrent, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="A" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="4" Text="PV1直流功率" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="2" Grid.Column="5" Text="{Binding DCPower1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="输出功率(4153)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding OutputPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="PV总功率(4154)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding PVTotalPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="继电器后电压(4179)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding RelayAfterVoltage, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="V" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="散热片温度(4191)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding HeatSinkTemp, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="℃" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="测试步骤(4192)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding TestState, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="内部风扇AD(4199)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding InternalFanAd, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="外部风扇AD(4200)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding ExternalFanAd, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Text="" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+
+            <TextBlock Text="【PV 1-8 路】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="70"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="44"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="44"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="44"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="PV1" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DCVolt1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding DCCurrent1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding DCPower1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="PV2" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding DCVolt2, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding DCCurrent2, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding DCPower2, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="PV3" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DCVolt3, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding DCCurrent3, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding DCPower3, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
                 <TextBlock Grid.Row="2" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="4" Text="PV2直流功率" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="3" Grid.Column="5" Text="{Binding DCPower2, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="PV4" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding DCVolt4, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="3" Grid.Column="3" Text="{Binding DCCurrent4, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding DCPower4, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
                 <TextBlock Grid.Row="3" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
 
-                <TextBlock Grid.Row="4" Grid.Column="4" Text="历史PV发电量" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
-                <TextBox   Grid.Row="4" Grid.Column="5" Text="{Binding HistoryPvGenCapacity, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="PV5" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding DCVolt5, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="4" Grid.Column="3" Text="{Binding DCCurrent5, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding DCPower5, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="PV6" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding DCVolt6, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="5" Grid.Column="3" Text="{Binding DCCurrent6, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="4" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="5" Grid.Column="5" Text="{Binding DCPower6, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="5" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="PV7" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding DCVolt7, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="6" Grid.Column="3" Text="{Binding DCCurrent7, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="4" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="6" Grid.Column="5" Text="{Binding DCPower7, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="6" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="PV8" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding DCVolt8, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="2" Text="V" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="7" Grid.Column="3" Text="{Binding DCCurrent8, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="4" Text="A" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="7" Grid.Column="5" Text="{Binding DCPower8, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="7" Grid.Column="6" Text="W" Style="{StaticResource LabelStyle}"/>
+            </Grid>
+
+            <TextBlock Text="【发电量】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="170"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto" MinWidth="170"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="54"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="当日PV1(4180)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DailyPVGen1, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="0" Grid.Column="4" Text="当日PV2(4181)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding DailyPVGen2, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="当日PV3(4182)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding DailyPVGen3, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="4" Text="当日PV4(4183)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding DailyPVGen4, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="当日PV5(4184)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DailyPVGen5, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="4" Text="当日PV6(4185)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding DailyPVGen6, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="当日PV7(4186)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding DailyPVGen7, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="4" Text="当日PV8(4187)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding DailyPVGen8, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="当日总PV(4188)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding DailyPVGenTotal, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="kWh" Style="{StaticResource LabelStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="4" Text="历史PV(4189-4190)" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding HistoryPvGenCapacity, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}"/>
                 <TextBlock Grid.Row="4" Grid.Column="6" Text="kWh" Style="{StaticResource LabelStyle}"/>
             </Grid>
 
-            <TextBlock Text="【运行状态】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
-            <Separator Style="{StaticResource DividerStyle}"/>
-            <StackPanel Orientation="Horizontal" Margin="0,4">
-                <TextBlock Text="运行模式：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <ComboBox Width="100" Style="{StaticResource DataComboBoxStyle}"
-                          ItemsSource="{Binding MpptModeItems}" DisplayMemberPath="Display"
-                          SelectedValuePath="Value" SelectedValue="{Binding MpptOperatingMode, Mode=TwoWay}"/>
-            </StackPanel>
-
             <TextBlock Text="【故障/告警注入】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
             <Separator Style="{StaticResource DividerStyle}"/>
-            <TextBlock Text="告警字：" Style="{StaticResource LabelStyle}" Margin="0,4,0,2"/>
-            <ctrl:AlarmCheckList DataContext="{Binding AlarmItems}"/>
-            <TextBlock Text="故障字：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
-            <ctrl:AlarmCheckList DataContext="{Binding FaultItems}"/>
+            <TextBlock Text="告警信息第1字(4193)：" Style="{StaticResource LabelStyle}" Margin="0,4,0,2"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Alarm1Items}"/>
+            <TextBlock Text="告警信息第2字(4194)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Alarm2Items}"/>
+            <TextBlock Text="故障信息第1字(4195)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault1Items}"/>
+            <TextBlock Text="故障信息第2字(4196)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault2Items}"/>
+            <TextBlock Text="故障信息第3字(4197)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault3Items}"/>
+            <TextBlock Text="故障信息第4字(4198)：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2" Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault4Items}"/>
 
             <WrapPanel Orientation="Horizontal" Margin="0,12,0,4">
-                <Button Content="🎲 一键生成数据" Command="{Binding GenerateDataCommand}"
+                <Button Content="一键生成数据" Command="{Binding GenerateDataCommand}"
                         Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
-                <Button Content="🗑 清除所有告警" Command="{Binding ClearAlarmsCommand}"
+                <Button Content="清除所有告警" Command="{Binding ClearAlarmsCommand}"
                         Style="{StaticResource DangerButtonStyle}"/>
             </WrapPanel>
         </StackPanel>

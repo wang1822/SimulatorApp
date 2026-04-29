@@ -12,7 +12,7 @@
         <StackPanel Margin="12,8">
 
             <!-- ===== 遥测数值区域 ===== -->
-            <TextBlock Text="【遥测数值】" Style="{StaticResource SectionTitleStyle}"/>
+            <TextBlock Text="【基本字段】" Style="{StaticResource SectionTitleStyle}"/>
             <Separator Style="{StaticResource DividerStyle}"/>
 
             <Grid>

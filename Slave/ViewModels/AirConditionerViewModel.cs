@@ -11,7 +11,7 @@ namespace SimulatorApp.Slave.ViewModels;
 public partial class AirConditionerViewModel : DeviceViewModelBase
 {
     private readonly AirConditionerModel _model = new();
-    public override string DeviceName => "空调";
+    public override string DeviceName => "GS215空调(ing)";
     protected override DeviceModelBase Model => _model;
 
     public AirConditionerViewModel(RegisterBank bank, RegisterMapService mapService) : base(bank, mapService)

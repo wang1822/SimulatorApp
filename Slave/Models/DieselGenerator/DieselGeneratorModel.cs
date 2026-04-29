@@ -8,7 +8,7 @@ namespace SimulatorApp.Slave.Models.DieselGenerator;
 /// </summary>
 public class DieselGeneratorModel : DeviceModelBase
 {
-    public override string DeviceName => "柴发";
+    public override string DeviceName => "GS215柴发(ing)";
     public override int BaseAddress    => 53504;
     public override int RegisterCount  => 64;
 

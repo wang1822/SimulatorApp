@@ -161,7 +161,7 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="地址*" Binding="{Binding Address}" Width="90" IsReadOnly="True"
                                             ElementStyle="{StaticResource InlineCellTextStyle}"/>
-                        <DataGridTemplateColumn Header="中文名*" Width="140">
+                        <DataGridTemplateColumn Header="中文名" Width="140">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding ChineseName}"

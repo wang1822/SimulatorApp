@@ -10,7 +10,7 @@ namespace SimulatorApp.Slave.ViewModels;
 public partial class DIDOControllerViewModel : DeviceViewModelBase
 {
     private readonly DIDOControllerModel _model = new();
-    public override string DeviceName => "DI/DO 动环控制器";
+    public override string DeviceName => "GS215DI/DO(ing)";
     protected override DeviceModelBase Model => _model;
 
     public DIDOControllerViewModel(RegisterBank bank, RegisterMapService mapService)

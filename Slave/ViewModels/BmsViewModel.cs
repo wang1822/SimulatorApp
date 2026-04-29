@@ -11,7 +11,7 @@ namespace SimulatorApp.Slave.ViewModels;
 public partial class BmsViewModel : DeviceViewModelBase
 {
     private readonly BmsModel _model = new();
-    public override string DeviceName => "BMS 电池管理系统";
+    public override string DeviceName => "GS215BMS(ing)";
     protected override DeviceModelBase Model => _model;
 
     public BmsViewModel(RegisterBank bank, RegisterMapService mapService) : base(bank, mapService)

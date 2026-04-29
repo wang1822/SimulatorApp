@@ -537,8 +537,38 @@ public partial class SlaveViewModel : ObservableObject
     [RelayCommand]
     public void RefreshComPorts()
     {
-        AvailableComPorts.Clear();
-        foreach (var p in SerialPort.GetPortNames()) AvailableComPorts.Add(p);
+        try
+        {
+            var ports = SerialPort.GetPortNames()
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            AvailableComPorts.Clear();
+            foreach (var p in ports)
+                AvailableComPorts.Add(p);
+
+            foreach (var listener in Listeners.Where(l => l.Protocol == ProtocolType.Rtu))
+            {
+                if (ports.Count == 0)
+                {
+                    listener.ComPort = string.Empty;
+                }
+                else if (string.IsNullOrWhiteSpace(listener.ComPort)
+                         || !ports.Contains(listener.ComPort, StringComparer.OrdinalIgnoreCase))
+                {
+                    listener.ComPort = ports[0];
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AvailableComPorts.Clear();
+            foreach (var listener in Listeners.Where(l => l.Protocol == ProtocolType.Rtu))
+                listener.ComPort = string.Empty;
+            AppLogger.Warn($"刷新串口列表失败：{ex.Message}");
+        }
     }
 
     [RelayCommand]
@@ -558,6 +588,8 @@ public partial class SlaveViewModel : ObservableObject
             }
         }
         catch (Exception ex) { AppLogger.Warn($"枚举本地 IP 失败：{ex.Message}"); }
+
+        RefreshComPorts();
     }
 
     // ----------------------------------------------------------------

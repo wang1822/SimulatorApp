@@ -11,6 +11,9 @@ _out2/
 stdout/
 msbuild.binlog
 
+# Office temporary lock files
+~$*
+
 # User-specific
 *.user
 *.suo
