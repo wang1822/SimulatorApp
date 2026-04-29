@@ -130,6 +130,87 @@
                 <TextBlock Grid.Row="4" Grid.Column="10" Text="kWh" Style="{StaticResource LabelStyle}"/>
             </Grid>
 
+            <!-- ===== 协议扩展字段（PCS V102：3037-3136） ===== -->
+            <TextBlock Text="【协议扩展字段】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
+            <Separator Style="{StaticResource DividerStyle}"/>
+            <WrapPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="逆变B相有功" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding PcsPhaseBActPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kW" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="逆变C相有功" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding PcsPhaseCActPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kW" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="逆变A相无功" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding PcsPhaseAReactPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kvar" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="逆变B相无功" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding PcsPhaseBReactPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kvar" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="逆变C相无功" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding PcsPhaseCReactPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kvar" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="电网侧总有功" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding GridSideTotalActPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kW" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="电网侧A相有功" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding GridSidePhaseAActPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kW" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="电网侧B相有功" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding GridSidePhaseBActPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kW" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="电网侧C相有功" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding GridSidePhaseCActPower, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kW" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="总充电量" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding CumulativeChargedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kWh" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="总放电量" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding CumulativeDischargedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kWh" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="日买电量" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding DailyPurchasedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kWh" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="日卖电量" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding DailySoldEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kWh" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="总买电量" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding CumulativePurchasedEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kWh" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="总卖电量" Style="{StaticResource LabelStyle}" Width="120"/>
+                    <TextBox Text="{Binding CumulativeSoldEnergy, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}" Style="{StaticResource DataTextBoxStyle}" Width="95"/>
+                    <TextBlock Text="kWh" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
+            </WrapPanel>
+
             <!-- ===== 运行状态 ===== -->
             <TextBlock Text="【运行状态】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
             <Separator Style="{StaticResource DividerStyle}"/>
@@ -150,25 +231,58 @@
                               SelectedValuePath="Value"
                               SelectedValue="{Binding OperatingState, Mode=TwoWay}"/>
                 </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="工作模式：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Width="100" Style="{StaticResource DataComboBoxStyle}"
+                              ItemsSource="{Binding OperatingModeItems}"
+                              DisplayMemberPath="Display"
+                              SelectedValuePath="Value"
+                              SelectedValue="{Binding OperatingMode, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="继电器状态：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox Width="90" Style="{StaticResource DataTextBoxStyle}"
+                             Text="{Binding RelayStatus, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,16,4">
+                    <TextBlock Text="并网倒计时：" Style="{StaticResource LabelStyle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox Width="90" Style="{StaticResource DataTextBoxStyle}"
+                             Text="{Binding SelfCheckingCountdown, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Text="s" Style="{StaticResource LabelStyle}" Margin="4,0,0,0"/>
+                </StackPanel>
             </WrapPanel>
 
             <!-- ===== 故障/告警注入 ===== -->
             <TextBlock Text="【故障/告警注入】" Style="{StaticResource SectionTitleStyle}" Margin="0,12,0,4"/>
             <Separator Style="{StaticResource DividerStyle}"/>
 
-            <TextBlock Text="告警字1（偏移+224）：" Style="{StaticResource LabelStyle}" Margin="0,4,0,2"/>
+            <TextBlock Text="告警字1（3057）：" Style="{StaticResource LabelStyle}" Margin="0,4,0,2"/>
             <ctrl:AlarmCheckList DataContext="{Binding Alarm1Items}"/>
 
-            <TextBlock Text="告警字2（偏移+225）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"/>
+            <TextBlock Text="告警字2（3058）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"/>
             <ctrl:AlarmCheckList DataContext="{Binding Alarm2Items}"/>
 
-            <TextBlock Text="故障字1（偏移+228）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"
+            <TextBlock Text="告警字3（3059）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Alarm3Items}"/>
+
+            <TextBlock Text="告警字4（3060）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Alarm4Items}"/>
+
+            <TextBlock Text="故障字1（3061：F01-F16）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"
                        Foreground="{StaticResource ErrorBrush}"/>
             <ctrl:AlarmCheckList DataContext="{Binding Fault1Items}"/>
 
-            <TextBlock Text="故障字2（偏移+229）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"
+            <TextBlock Text="故障字2（3062：F17-F32）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"
                        Foreground="{StaticResource ErrorBrush}"/>
             <ctrl:AlarmCheckList DataContext="{Binding Fault2Items}"/>
+
+            <TextBlock Text="故障字3（3063：F33-F48）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"
+                       Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault3Items}"/>
+
+            <TextBlock Text="故障字4（3064：F49-F64）：" Style="{StaticResource LabelStyle}" Margin="0,6,0,2"
+                       Foreground="{StaticResource ErrorBrush}"/>
+            <ctrl:AlarmCheckList DataContext="{Binding Fault4Items}"/>
 
             <!-- 操作按钮 -->
             <WrapPanel Orientation="Horizontal" Margin="0,12,0,4">

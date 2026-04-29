@@ -100,7 +100,7 @@
         </DataTemplate>
 
 
-        <!-- 导入协议设备专用模板：含删除按钮 -->
+        <!-- 导入协议设备专用模板 -->
         <DataTemplate x:Key="ImportedDeviceItemTemplate">
             <Border Padding="6,4" Cursor="Hand">
                 <Border.Style>
@@ -121,14 +121,6 @@
                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
                               VerticalAlignment="Center" Margin="4,0,0,0"
                               ToolTip="勾选后：启动监听时寄存器生效，定时模拟运行，导出时包含此设备"/>
-                    <Button DockPanel.Dock="Right" Width="18" Height="18" Padding="0"
-                            Content="x" FontSize="12"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            Foreground="#EF4444"
-                            Command="{Binding DataContext.RemoveImportedDeviceCommand,
-                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
-                            CommandParameter="{Binding}"
-                            ToolTip="从列表和数据库中删除此协议设备"/>
                     <TextBlock Text="{Binding DeviceName}"
                                Foreground="{StaticResource TextPrimaryBrush}"
                                FontSize="12" VerticalAlignment="Center"
@@ -319,6 +311,21 @@
                     <Button Content="📋 新建协议" Style="{StaticResource SecondaryButtonStyle}"
                             Margin="0,0,6,0" ToolTip="新建协议配置：配置监听端点并导入寄存器协议"
                             Click="NewProtocol_Click"/>
+                    <Button Content="删除协议"
+                            Margin="0,0,6,0"
+                            ToolTip="删除当前选中的协议导入设备"
+                            Click="DeleteImportedProtocol_Click">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Setter Property="Foreground" Value="#EF4444"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedItem, ElementName=ImportedDevicesList}" Value="{x:Null}">
+                                        <Setter Property="IsEnabled" Value="False"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </WrapPanel>
 
             </StackPanel>

@@ -8,93 +8,157 @@ using System.Collections.ObjectModel;
 namespace SimulatorApp.Slave.ViewModels;
 
 /// <summary>
-/// PCS 储能变流器 ViewModel。
-/// 字段与设计文档第 8.1 节保持一致。
+/// PCS 储能变流器 ViewModel，字段依据 PCS_Modbus协议V102.xlsx 的 3000-3136 遥测区。
 /// </summary>
 public partial class PcsViewModel : DeviceViewModelBase
 {
     private readonly PcsModel _model = new();
 
-    public override string      DeviceName => "PCS 储能变流器";
+    public override string DeviceName => "PCS 储能变流器";
     protected override DeviceModelBase Model => _model;
 
     public PcsViewModel(RegisterBank bank, RegisterMapService mapService)
         : base(bank, mapService)
     {
-        // 初始化告警/故障 CheckBox 列表（bitmask，OR 合并）
         InitAlarmItems();
-        // 首次刷新
         FlushToRegisters();
     }
 
-    // ----------------------------------------------------------------
-    // 遥测字段（[ObservableProperty] 生成属性，变更时自动调用 OnXxxChanged）
-    // ----------------------------------------------------------------
+    [ObservableProperty] private double _dcVoltage = 750.0;
+    [ObservableProperty] private double _dcCurrent = 0.0;
+    [ObservableProperty] private double _dcPower = 0.0;
+    [ObservableProperty] private double _pcsPhaseAVolt = 220.0;
+    [ObservableProperty] private double _pcsPhaseBVolt = 220.0;
+    [ObservableProperty] private double _pcsPhaseCVolt = 220.0;
+    [ObservableProperty] private double _gridPhaseAVolt = 220.0;
+    [ObservableProperty] private double _gridPhaseBVolt = 220.0;
+    [ObservableProperty] private double _gridPhaseCVolt = 220.0;
+    [ObservableProperty] private double _gridPhaseACurrent = 0.0;
+    [ObservableProperty] private double _gridPhaseBCurrent = 0.0;
+    [ObservableProperty] private double _gridPhaseCCurrent = 0.0;
+    [ObservableProperty] private double _gridFrequency = 50.00;
+    [ObservableProperty] private double _gridPowerFactor = 1.000;
+    [ObservableProperty] private double _pcsTotalActPower = 0.0;
+    [ObservableProperty] private double _pcsPhaseAActPower = 0.0;
+    [ObservableProperty] private double _pcsPhaseBActPower = 0.0;
+    [ObservableProperty] private double _pcsPhaseCActPower = 0.0;
+    [ObservableProperty] private double _pcsTotalReactPower = 0.0;
+    [ObservableProperty] private double _pcsPhaseAReactPower = 0.0;
+    [ObservableProperty] private double _pcsPhaseBReactPower = 0.0;
+    [ObservableProperty] private double _pcsPhaseCReactPower = 0.0;
+    [ObservableProperty] private double _gridSideTotalActPower = 0.0;
+    [ObservableProperty] private double _gridSidePhaseAActPower = 0.0;
+    [ObservableProperty] private double _gridSidePhaseBActPower = 0.0;
+    [ObservableProperty] private double _gridSidePhaseCActPower = 0.0;
+    [ObservableProperty] private double _dailyChargedEnergy = 0.0;
+    [ObservableProperty] private double _dailyDischargedEnergy = 0.0;
+    [ObservableProperty] private double _cumulativeChargedEnergy = 0.0;
+    [ObservableProperty] private double _cumulativeDischargedEnergy = 0.0;
+    [ObservableProperty] private double _dailyPurchasedEnergy = 0.0;
+    [ObservableProperty] private double _dailySoldEnergy = 0.0;
+    [ObservableProperty] private double _cumulativePurchasedEnergy = 0.0;
+    [ObservableProperty] private double _cumulativeSoldEnergy = 0.0;
+    [ObservableProperty] private double _pcsTemp1 = 25.0;
+    [ObservableProperty] private double _pcsTemp2 = 25.0;
+    [ObservableProperty] private double _dailyChargingTime = 0.0;
+    [ObservableProperty] private double _dailyDischargingTime = 0.0;
+    [ObservableProperty] private double _cumulativeChargingTime = 0.0;
+    [ObservableProperty] private double _cumulativeDischargingTime = 0.0;
+    [ObservableProperty] private double _exportLimitTotalActPower = 0.0;
+    [ObservableProperty] private double _exportLimitPhaseAActPower = 0.0;
+    [ObservableProperty] private double _exportLimitPhaseBActPower = 0.0;
+    [ObservableProperty] private double _exportLimitPhaseCActPower = 0.0;
+    [ObservableProperty] private double _exportLimitTotalReactPower = 0.0;
+    [ObservableProperty] private double _exportLimitPhaseAReactPower = 0.0;
+    [ObservableProperty] private double _exportLimitPhaseBReactPower = 0.0;
+    [ObservableProperty] private double _exportLimitPhaseCReactPower = 0.0;
+    [ObservableProperty] private double _loadTotalActPower = 0.0;
+    [ObservableProperty] private double _loadPhaseAActPower = 0.0;
+    [ObservableProperty] private double _loadPhaseBActPower = 0.0;
+    [ObservableProperty] private double _loadPhaseCActPower = 0.0;
+    [ObservableProperty] private double _loadTotalReactPower = 0.0;
+    [ObservableProperty] private double _loadPhaseAReactPower = 0.0;
+    [ObservableProperty] private double _loadPhaseBReactPower = 0.0;
+    [ObservableProperty] private double _loadPhaseCReactPower = 0.0;
+    [ObservableProperty] private double _meterSoldEnergy = 0.0;
+    [ObservableProperty] private double _meterPurchasedEnergy = 0.0;
+    [ObservableProperty] private int _chargingState = 2;
+    [ObservableProperty] private int _operatingState = 0;
+    [ObservableProperty] private int _operatingMode = 0;
+    [ObservableProperty] private int _relayStatus = 0;
+    [ObservableProperty] private int _selfCheckingCountdown = 0;
+    [ObservableProperty] private int _exportLimitMode = 0;
 
-    [ObservableProperty] private double _dcVoltage              = 750.0;
-    [ObservableProperty] private double _dcCurrent              = 0.0;
-    [ObservableProperty] private double _dcPower                = 0.0;
-    [ObservableProperty] private double _pcsPhaseAVolt          = 220.0;
-    [ObservableProperty] private double _pcsPhaseBVolt          = 220.0;
-    [ObservableProperty] private double _pcsPhaseCVolt          = 220.0;
-    [ObservableProperty] private double _gridPhaseAVolt         = 220.0;
-    [ObservableProperty] private double _gridPhaseBVolt         = 220.0;
-    [ObservableProperty] private double _gridPhaseCVolt         = 220.0;
-    [ObservableProperty] private double _gridPhaseACurrent      = 0.0;
-    [ObservableProperty] private double _gridPhaseBCurrent      = 0.0;
-    [ObservableProperty] private double _gridPhaseCCurrent      = 0.0;
-    [ObservableProperty] private double _gridFrequency          = 50.00;
-    [ObservableProperty] private double _gridPowerFactor        = 1.000;
-    [ObservableProperty] private double _pcsTotalActPower       = 0.0;
-    [ObservableProperty] private double _pcsPhaseAActPower      = 0.0;
-    [ObservableProperty] private double _pcsPhaseBActPower      = 0.0;
-    [ObservableProperty] private double _pcsPhaseCActPower      = 0.0;
-    [ObservableProperty] private double _pcsTotalReactPower     = 0.0;
-    [ObservableProperty] private double _pcsTemp1               = 25.0;
-    [ObservableProperty] private double _pcsTemp2               = 25.0;
-    [ObservableProperty] private double _dailyChargedEnergy     = 0.0;
-    [ObservableProperty] private double _dailyDischargedEnergy  = 0.0;
-
-    // 状态（ComboBox）
-    [ObservableProperty] private int _chargingState   = 0;
-    [ObservableProperty] private int _operatingState  = 0;
-
-    // 属性变更 → 刷新寄存器（每个字段都需要）
-    partial void OnDcVoltageChanged(double v)              => FlushToRegisters();
-    partial void OnDcCurrentChanged(double v)              => FlushToRegisters();
-    partial void OnDcPowerChanged(double v)                => FlushToRegisters();
-    partial void OnPcsPhaseAVoltChanged(double v)          => FlushToRegisters();
-    partial void OnPcsPhaseBVoltChanged(double v)          => FlushToRegisters();
-    partial void OnPcsPhaseCVoltChanged(double v)          => FlushToRegisters();
-    partial void OnGridPhaseAVoltChanged(double v)         => FlushToRegisters();
-    partial void OnGridPhaseBVoltChanged(double v)         => FlushToRegisters();
-    partial void OnGridPhaseCVoltChanged(double v)         => FlushToRegisters();
-    partial void OnGridPhaseACurrentChanged(double v)      => FlushToRegisters();
-    partial void OnGridPhaseBCurrentChanged(double v)      => FlushToRegisters();
-    partial void OnGridPhaseCCurrentChanged(double v)      => FlushToRegisters();
-    partial void OnGridFrequencyChanged(double v)          => FlushToRegisters();
-    partial void OnGridPowerFactorChanged(double v)        => FlushToRegisters();
-    partial void OnPcsTotalActPowerChanged(double v)       => FlushToRegisters();
-    partial void OnPcsPhaseAActPowerChanged(double v)      => FlushToRegisters();
-    partial void OnPcsPhaseBActPowerChanged(double v)      => FlushToRegisters();
-    partial void OnPcsPhaseCActPowerChanged(double v)      => FlushToRegisters();
-    partial void OnPcsTotalReactPowerChanged(double v)     => FlushToRegisters();
-    partial void OnPcsTemp1Changed(double v)               => FlushToRegisters();
-    partial void OnPcsTemp2Changed(double v)               => FlushToRegisters();
-    partial void OnDailyChargedEnergyChanged(double v)     => FlushToRegisters();
-    partial void OnDailyDischargedEnergyChanged(double v)  => FlushToRegisters();
-    partial void OnChargingStateChanged(int v)             => FlushToRegisters();
-    partial void OnOperatingStateChanged(int v)            => FlushToRegisters();
-
-    // ----------------------------------------------------------------
-    // 状态枚举选项（ComboBox 数据源）
-    // ----------------------------------------------------------------
+    partial void OnDcVoltageChanged(double value) => FlushToRegisters();
+    partial void OnDcCurrentChanged(double value) => FlushToRegisters();
+    partial void OnDcPowerChanged(double value) => FlushToRegisters();
+    partial void OnPcsPhaseAVoltChanged(double value) => FlushToRegisters();
+    partial void OnPcsPhaseBVoltChanged(double value) => FlushToRegisters();
+    partial void OnPcsPhaseCVoltChanged(double value) => FlushToRegisters();
+    partial void OnGridPhaseAVoltChanged(double value) => FlushToRegisters();
+    partial void OnGridPhaseBVoltChanged(double value) => FlushToRegisters();
+    partial void OnGridPhaseCVoltChanged(double value) => FlushToRegisters();
+    partial void OnGridPhaseACurrentChanged(double value) => FlushToRegisters();
+    partial void OnGridPhaseBCurrentChanged(double value) => FlushToRegisters();
+    partial void OnGridPhaseCCurrentChanged(double value) => FlushToRegisters();
+    partial void OnGridFrequencyChanged(double value) => FlushToRegisters();
+    partial void OnGridPowerFactorChanged(double value) => FlushToRegisters();
+    partial void OnPcsTotalActPowerChanged(double value) => FlushToRegisters();
+    partial void OnPcsPhaseAActPowerChanged(double value) => FlushToRegisters();
+    partial void OnPcsPhaseBActPowerChanged(double value) => FlushToRegisters();
+    partial void OnPcsPhaseCActPowerChanged(double value) => FlushToRegisters();
+    partial void OnPcsTotalReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnPcsPhaseAReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnPcsPhaseBReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnPcsPhaseCReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnGridSideTotalActPowerChanged(double value) => FlushToRegisters();
+    partial void OnGridSidePhaseAActPowerChanged(double value) => FlushToRegisters();
+    partial void OnGridSidePhaseBActPowerChanged(double value) => FlushToRegisters();
+    partial void OnGridSidePhaseCActPowerChanged(double value) => FlushToRegisters();
+    partial void OnDailyChargedEnergyChanged(double value) => FlushToRegisters();
+    partial void OnDailyDischargedEnergyChanged(double value) => FlushToRegisters();
+    partial void OnCumulativeChargedEnergyChanged(double value) => FlushToRegisters();
+    partial void OnCumulativeDischargedEnergyChanged(double value) => FlushToRegisters();
+    partial void OnDailyPurchasedEnergyChanged(double value) => FlushToRegisters();
+    partial void OnDailySoldEnergyChanged(double value) => FlushToRegisters();
+    partial void OnCumulativePurchasedEnergyChanged(double value) => FlushToRegisters();
+    partial void OnCumulativeSoldEnergyChanged(double value) => FlushToRegisters();
+    partial void OnPcsTemp1Changed(double value) => FlushToRegisters();
+    partial void OnPcsTemp2Changed(double value) => FlushToRegisters();
+    partial void OnDailyChargingTimeChanged(double value) => FlushToRegisters();
+    partial void OnDailyDischargingTimeChanged(double value) => FlushToRegisters();
+    partial void OnCumulativeChargingTimeChanged(double value) => FlushToRegisters();
+    partial void OnCumulativeDischargingTimeChanged(double value) => FlushToRegisters();
+    partial void OnExportLimitTotalActPowerChanged(double value) => FlushToRegisters();
+    partial void OnExportLimitPhaseAActPowerChanged(double value) => FlushToRegisters();
+    partial void OnExportLimitPhaseBActPowerChanged(double value) => FlushToRegisters();
+    partial void OnExportLimitPhaseCActPowerChanged(double value) => FlushToRegisters();
+    partial void OnExportLimitTotalReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnExportLimitPhaseAReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnExportLimitPhaseBReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnExportLimitPhaseCReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnLoadTotalActPowerChanged(double value) => FlushToRegisters();
+    partial void OnLoadPhaseAActPowerChanged(double value) => FlushToRegisters();
+    partial void OnLoadPhaseBActPowerChanged(double value) => FlushToRegisters();
+    partial void OnLoadPhaseCActPowerChanged(double value) => FlushToRegisters();
+    partial void OnLoadTotalReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnLoadPhaseAReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnLoadPhaseBReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnLoadPhaseCReactPowerChanged(double value) => FlushToRegisters();
+    partial void OnMeterSoldEnergyChanged(double value) => FlushToRegisters();
+    partial void OnMeterPurchasedEnergyChanged(double value) => FlushToRegisters();
+    partial void OnChargingStateChanged(int value) => FlushToRegisters();
+    partial void OnOperatingStateChanged(int value) => FlushToRegisters();
+    partial void OnOperatingModeChanged(int value) => FlushToRegisters();
+    partial void OnRelayStatusChanged(int value) => FlushToRegisters();
+    partial void OnSelfCheckingCountdownChanged(int value) => FlushToRegisters();
+    partial void OnExportLimitModeChanged(int value) => FlushToRegisters();
 
     public IReadOnlyList<ComboItem> ChargingStateItems { get; } = new[]
     {
-        new ComboItem(0, "静置"),
-        new ComboItem(1, "充电"),
-        new ComboItem(2, "放电")
+        new ComboItem(0, "充电"),
+        new ComboItem(1, "放电"),
+        new ComboItem(2, "待机")
     };
 
     public IReadOnlyList<ComboItem> OperatingStateItems { get; } = new[]
@@ -106,142 +170,178 @@ public partial class PcsViewModel : DeviceViewModelBase
         new ComboItem(4, "故障")
     };
 
-    // ----------------------------------------------------------------
-    // 故障/告警 CheckBox 列表
-    // ----------------------------------------------------------------
+    public IReadOnlyList<ComboItem> OperatingModeItems { get; } = new[]
+    {
+        new ComboItem(0, "并网"),
+        new ComboItem(1, "离网")
+    };
 
     public ObservableCollection<AlarmItem> Alarm1Items { get; } = new();
     public ObservableCollection<AlarmItem> Alarm2Items { get; } = new();
+    public ObservableCollection<AlarmItem> Alarm3Items { get; } = new();
+    public ObservableCollection<AlarmItem> Alarm4Items { get; } = new();
     public ObservableCollection<AlarmItem> Fault1Items { get; } = new();
     public ObservableCollection<AlarmItem> Fault2Items { get; } = new();
+    public ObservableCollection<AlarmItem> Fault3Items { get; } = new();
+    public ObservableCollection<AlarmItem> Fault4Items { get; } = new();
 
     private void InitAlarmItems()
     {
-        // 告警字1（偏移 +224）—— 各bit含义待协议附件确认，占位描述
-        var alarm1Defs = new[]
-        {
-            (0x0001, "告警1-Bit0"), (0x0002, "告警1-Bit1"), (0x0004, "告警1-Bit2"),
-            (0x0008, "告警1-Bit3"), (0x0010, "告警1-Bit4"), (0x0020, "告警1-Bit5"),
-            (0x0040, "告警1-Bit6"), (0x0080, "告警1-Bit7"),
-        };
-        foreach (var (bit, label) in alarm1Defs)
-        {
-            var item = new AlarmItem(label, bit);
-            item.CheckedChanged += OnAlarmChanged;
-            Alarm1Items.Add(item);
-        }
+        AddBitItems(Alarm1Items, "告警1");
+        AddBitItems(Alarm2Items, "告警2");
+        AddBitItems(Alarm3Items, "告警3");
+        AddBitItems(Alarm4Items, "告警4");
+        AddFaultItems(Fault1Items, 1);
+        AddFaultItems(Fault2Items, 17);
+        AddFaultItems(Fault3Items, 33);
+        AddFaultItems(Fault4Items, 49);
+    }
 
-        // 告警字2
-        var alarm2Defs = new[]
+    private void AddBitItems(ObservableCollection<AlarmItem> target, string prefix)
+    {
+        for (int bit = 0; bit < 16; bit++)
         {
-            (0x0001, "告警2-Bit0"), (0x0002, "告警2-Bit1"), (0x0004, "告警2-Bit2"),
-            (0x0008, "告警2-Bit3"), (0x0010, "告警2-Bit4"), (0x0020, "告警2-Bit5"),
-        };
-        foreach (var (bit, label) in alarm2Defs)
-        {
-            var item = new AlarmItem(label, bit);
+            var item = new AlarmItem($"{prefix}-Bit{bit}", 1 << bit);
             item.CheckedChanged += OnAlarmChanged;
-            Alarm2Items.Add(item);
+            target.Add(item);
         }
+    }
 
-        // 故障字1（偏移 +228）
-        var fault1Defs = new[]
+    private void AddFaultItems(ObservableCollection<AlarmItem> target, int startCode)
+    {
+        for (int bit = 0; bit < 16; bit++)
         {
-            (0x0001, "故障1-Bit0"), (0x0002, "故障1-Bit1"), (0x0004, "故障1-Bit2"),
-            (0x0008, "故障1-Bit3"), (0x0010, "故障1-Bit4"), (0x0020, "故障1-Bit5"),
-            (0x0040, "故障1-Bit6"), (0x0080, "故障1-Bit7"),
-        };
-        foreach (var (bit, label) in fault1Defs)
-        {
-            var item = new AlarmItem(label, bit);
+            int code = startCode + bit;
+            var item = new AlarmItem($"F{code:00}", 1 << bit);
             item.CheckedChanged += OnAlarmChanged;
-            Fault1Items.Add(item);
-        }
-
-        // 故障字2
-        var fault2Defs = new[]
-        {
-            (0x0001, "故障2-Bit0"), (0x0002, "故障2-Bit1"), (0x0004, "故障2-Bit2"),
-            (0x0008, "故障2-Bit3"),
-        };
-        foreach (var (bit, label) in fault2Defs)
-        {
-            var item = new AlarmItem(label, bit);
-            item.CheckedChanged += OnAlarmChanged;
-            Fault2Items.Add(item);
+            target.Add(item);
         }
     }
 
     private void OnAlarmChanged() => FlushToRegisters();
 
-    // ----------------------------------------------------------------
-    // SyncToModel：将 ViewModel 字段同步到 Model
-    // ----------------------------------------------------------------
-
     protected override void SyncToModel()
     {
-        _model.DcVoltage             = DcVoltage;
-        _model.DcCurrent             = DcCurrent;
-        _model.DcPower               = DcPower;
-        _model.PcsPhaseAVolt         = PcsPhaseAVolt;
-        _model.PcsPhaseBVolt         = PcsPhaseBVolt;
-        _model.PcsPhaseCVolt         = PcsPhaseCVolt;
-        _model.GridPhaseAVolt        = GridPhaseAVolt;
-        _model.GridPhaseBVolt        = GridPhaseBVolt;
-        _model.GridPhaseCVolt        = GridPhaseCVolt;
-        _model.GridPhaseACurrent     = GridPhaseACurrent;
-        _model.GridPhaseBCurrent     = GridPhaseBCurrent;
-        _model.GridPhaseCCurrent     = GridPhaseCCurrent;
-        _model.GridFrequency         = GridFrequency;
-        _model.GridPowerFactor       = GridPowerFactor;
-        _model.PcsTotalActPower      = PcsTotalActPower;
-        _model.PcsPhaseAActPower     = PcsPhaseAActPower;
-        _model.PcsPhaseBActPower     = PcsPhaseBActPower;
-        _model.PcsPhaseCActPower     = PcsPhaseCActPower;
-        _model.PcsTotalReactPower    = PcsTotalReactPower;
-        _model.PcsTemp1              = PcsTemp1;
-        _model.PcsTemp2              = PcsTemp2;
-        _model.DailyChargedEnergy    = DailyChargedEnergy;
+        _model.DcVoltage = DcVoltage;
+        _model.DcCurrent = DcCurrent;
+        _model.DcPower = DcPower;
+        _model.PcsPhaseAVolt = PcsPhaseAVolt;
+        _model.PcsPhaseBVolt = PcsPhaseBVolt;
+        _model.PcsPhaseCVolt = PcsPhaseCVolt;
+        _model.GridPhaseAVolt = GridPhaseAVolt;
+        _model.GridPhaseBVolt = GridPhaseBVolt;
+        _model.GridPhaseCVolt = GridPhaseCVolt;
+        _model.GridPhaseACurrent = GridPhaseACurrent;
+        _model.GridPhaseBCurrent = GridPhaseBCurrent;
+        _model.GridPhaseCCurrent = GridPhaseCCurrent;
+        _model.GridFrequency = GridFrequency;
+        _model.GridPowerFactor = GridPowerFactor;
+        _model.PcsTotalActPower = PcsTotalActPower;
+        _model.PcsPhaseAActPower = PcsPhaseAActPower;
+        _model.PcsPhaseBActPower = PcsPhaseBActPower;
+        _model.PcsPhaseCActPower = PcsPhaseCActPower;
+        _model.PcsTotalReactPower = PcsTotalReactPower;
+        _model.PcsPhaseAReactPower = PcsPhaseAReactPower;
+        _model.PcsPhaseBReactPower = PcsPhaseBReactPower;
+        _model.PcsPhaseCReactPower = PcsPhaseCReactPower;
+        _model.GridSideTotalActPower = GridSideTotalActPower;
+        _model.GridSidePhaseAActPower = GridSidePhaseAActPower;
+        _model.GridSidePhaseBActPower = GridSidePhaseBActPower;
+        _model.GridSidePhaseCActPower = GridSidePhaseCActPower;
+        _model.DailyChargedEnergy = DailyChargedEnergy;
         _model.DailyDischargedEnergy = DailyDischargedEnergy;
-        _model.ChargingState         = ChargingState;
-        _model.OperatingState        = OperatingState;
+        _model.CumulativeChargedEnergy = CumulativeChargedEnergy;
+        _model.CumulativeDischargedEnergy = CumulativeDischargedEnergy;
+        _model.DailyPurchasedEnergy = DailyPurchasedEnergy;
+        _model.DailySoldEnergy = DailySoldEnergy;
+        _model.CumulativePurchasedEnergy = CumulativePurchasedEnergy;
+        _model.CumulativeSoldEnergy = CumulativeSoldEnergy;
+        _model.PcsTemp1 = PcsTemp1;
+        _model.PcsTemp2 = PcsTemp2;
+        _model.DailyChargingTime = DailyChargingTime;
+        _model.DailyDischargingTime = DailyDischargingTime;
+        _model.CumulativeChargingTime = CumulativeChargingTime;
+        _model.CumulativeDischargingTime = CumulativeDischargingTime;
+        _model.ExportLimitTotalActPower = ExportLimitTotalActPower;
+        _model.ExportLimitPhaseAActPower = ExportLimitPhaseAActPower;
+        _model.ExportLimitPhaseBActPower = ExportLimitPhaseBActPower;
+        _model.ExportLimitPhaseCActPower = ExportLimitPhaseCActPower;
+        _model.ExportLimitTotalReactPower = ExportLimitTotalReactPower;
+        _model.ExportLimitPhaseAReactPower = ExportLimitPhaseAReactPower;
+        _model.ExportLimitPhaseBReactPower = ExportLimitPhaseBReactPower;
+        _model.ExportLimitPhaseCReactPower = ExportLimitPhaseCReactPower;
+        _model.LoadTotalActPower = LoadTotalActPower;
+        _model.LoadPhaseAActPower = LoadPhaseAActPower;
+        _model.LoadPhaseBActPower = LoadPhaseBActPower;
+        _model.LoadPhaseCActPower = LoadPhaseCActPower;
+        _model.LoadTotalReactPower = LoadTotalReactPower;
+        _model.LoadPhaseAReactPower = LoadPhaseAReactPower;
+        _model.LoadPhaseBReactPower = LoadPhaseBReactPower;
+        _model.LoadPhaseCReactPower = LoadPhaseCReactPower;
+        _model.MeterSoldEnergy = MeterSoldEnergy;
+        _model.MeterPurchasedEnergy = MeterPurchasedEnergy;
+        _model.ChargingState = ChargingState;
+        _model.OperatingState = OperatingState;
+        _model.OperatingMode = OperatingMode;
+        _model.RelayStatus = (ushort)RelayStatus;
+        _model.SelfCheckingCountdown = SelfCheckingCountdown;
+        _model.ExportLimitMode = (ushort)ExportLimitMode;
         _model.Alarm1 = CalcBitmask(Alarm1Items);
         _model.Alarm2 = CalcBitmask(Alarm2Items);
+        _model.Alarm3 = CalcBitmask(Alarm3Items);
+        _model.Alarm4 = CalcBitmask(Alarm4Items);
         _model.Fault1 = CalcBitmask(Fault1Items);
         _model.Fault2 = CalcBitmask(Fault2Items);
+        _model.Fault3 = CalcBitmask(Fault3Items);
+        _model.Fault4 = CalcBitmask(Fault4Items);
     }
-
-    // ----------------------------------------------------------------
-    // 一键生成随机数据
-    // ----------------------------------------------------------------
 
     public override void GenerateData()
     {
         var rnd = new Random();
-        DcVoltage          = Math.Round(700 + rnd.NextDouble() * 100, 1);
-        DcCurrent          = Math.Round(-200 + rnd.NextDouble() * 400, 1);
-        PcsPhaseAVolt      = Math.Round(215 + rnd.NextDouble() * 10, 1);
-        PcsPhaseBVolt      = Math.Round(215 + rnd.NextDouble() * 10, 1);
-        PcsPhaseCVolt      = Math.Round(215 + rnd.NextDouble() * 10, 1);
-        GridPhaseAVolt     = Math.Round(215 + rnd.NextDouble() * 10, 1);
-        GridFrequency      = Math.Round(49.9 + rnd.NextDouble() * 0.2, 2);
-        GridPowerFactor    = Math.Round(0.95 + rnd.NextDouble() * 0.05, 3);
-        PcsTemp1           = Math.Round(20 + rnd.NextDouble() * 30, 1);
-        PcsTemp2           = Math.Round(20 + rnd.NextDouble() * 30, 1);
-        OperatingState     = 2; // 运行
+        DcVoltage = Math.Round(700 + rnd.NextDouble() * 100, 1);
+        DcCurrent = Math.Round(-200 + rnd.NextDouble() * 400, 1);
+        DcPower = Math.Round(-80 + rnd.NextDouble() * 160, 1);
+        PcsPhaseAVolt = Math.Round(215 + rnd.NextDouble() * 10, 1);
+        PcsPhaseBVolt = Math.Round(215 + rnd.NextDouble() * 10, 1);
+        PcsPhaseCVolt = Math.Round(215 + rnd.NextDouble() * 10, 1);
+        GridPhaseAVolt = Math.Round(215 + rnd.NextDouble() * 10, 1);
+        GridPhaseBVolt = Math.Round(215 + rnd.NextDouble() * 10, 1);
+        GridPhaseCVolt = Math.Round(215 + rnd.NextDouble() * 10, 1);
+        GridPhaseACurrent = Math.Round(rnd.NextDouble() * 120, 1);
+        GridPhaseBCurrent = Math.Round(rnd.NextDouble() * 120, 1);
+        GridPhaseCCurrent = Math.Round(rnd.NextDouble() * 120, 1);
+        GridFrequency = Math.Round(49.9 + rnd.NextDouble() * 0.2, 2);
+        GridPowerFactor = Math.Round(0.95 + rnd.NextDouble() * 0.05, 3);
+        PcsTotalActPower = Math.Round(-80 + rnd.NextDouble() * 160, 2);
+        PcsPhaseAActPower = Math.Round(PcsTotalActPower / 3, 2);
+        PcsPhaseBActPower = Math.Round(PcsTotalActPower / 3, 2);
+        PcsPhaseCActPower = Math.Round(PcsTotalActPower / 3, 2);
+        PcsTotalReactPower = Math.Round(-20 + rnd.NextDouble() * 40, 2);
+        GridSideTotalActPower = PcsTotalActPower;
+        GridSidePhaseAActPower = PcsPhaseAActPower;
+        GridSidePhaseBActPower = PcsPhaseBActPower;
+        GridSidePhaseCActPower = PcsPhaseCActPower;
+        DailyChargedEnergy = Math.Round(rnd.NextDouble() * 200, 1);
+        DailyDischargedEnergy = Math.Round(rnd.NextDouble() * 200, 1);
+        PcsTemp1 = Math.Round(20 + rnd.NextDouble() * 30, 1);
+        PcsTemp2 = Math.Round(20 + rnd.NextDouble() * 30, 1);
+        ChargingState = rnd.Next(0, 3);
+        OperatingState = 2;
+        OperatingMode = rnd.Next(0, 2);
         base.GenerateData();
     }
-
-    // ----------------------------------------------------------------
-    // 清除所有告警
-    // ----------------------------------------------------------------
 
     public override void ClearAlarms()
     {
         foreach (var item in Alarm1Items) item.IsChecked = false;
         foreach (var item in Alarm2Items) item.IsChecked = false;
+        foreach (var item in Alarm3Items) item.IsChecked = false;
+        foreach (var item in Alarm4Items) item.IsChecked = false;
         foreach (var item in Fault1Items) item.IsChecked = false;
         foreach (var item in Fault2Items) item.IsChecked = false;
+        foreach (var item in Fault3Items) item.IsChecked = false;
+        foreach (var item in Fault4Items) item.IsChecked = false;
         base.ClearAlarms();
     }
 }

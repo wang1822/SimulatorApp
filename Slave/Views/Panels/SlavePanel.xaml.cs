@@ -78,6 +78,18 @@ public partial class SlavePanel : UserControl
         await vm.AddDeviceFromDialogAsync(dlgVm);
     }
 
+    private void DeleteImportedProtocol_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not SlaveViewModel vm)
+            return;
+
+        if (ImportedDevicesList.SelectedItem is not ImportedDeviceViewModel selected)
+            return;
+
+        if (vm.RemoveImportedDeviceCommand.CanExecute(selected))
+            vm.RemoveImportedDeviceCommand.Execute(selected);
+    }
+
     private async void StartAllListeners_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not SlaveViewModel vm)
