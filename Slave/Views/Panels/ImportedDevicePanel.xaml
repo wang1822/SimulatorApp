@@ -18,6 +18,12 @@
                         Background="#2563EB" Foreground="White"
                         BorderThickness="0" Cursor="Hand" FontSize="12"
                         Click="AddRow_Click"/>
+                <Button DockPanel.Dock="Right" Content="编辑协议"
+                        Height="24" Padding="10,0" Margin="0,0,4,0"
+                        Background="#0F766E" Foreground="White"
+                        BorderThickness="0" Cursor="Hand" FontSize="12"
+                        Click="EditProtocol_Click"
+                        ToolTip="跳转到寄存器检视编辑该协议，保存后替换原协议"/>
                 <!-- 搜索框 + 按钮 -->
                 <Button DockPanel.Dock="Right" Content="搜索"
                         Height="24" Padding="10,0" Margin="0,0,4,0"

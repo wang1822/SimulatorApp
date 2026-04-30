@@ -24,6 +24,10 @@ public partial class RegisterInspectorPanel
     private int _lastPasteAnchorDisplayIndex = -1;
     private static readonly TimeSpan WriteDebounceInterval = TimeSpan.FromMilliseconds(220);
     private static readonly object CurrentValueDefaultedMarker = new();
+    private bool _isCtrlDragSelecting;
+    private bool _ctrlDragAddsSelection = true;
+    private int _ctrlDragAnchorRowIndex = -1;
+    private int _ctrlDragAnchorDisplayIndex = -1;
 
     private void CurrentValueTextBox_Loaded(object sender, RoutedEventArgs e)
     {
@@ -78,15 +82,28 @@ public partial class RegisterInspectorPanel
     {
         if (sender is not DataGridCell cell ||
             InlineProtocolDraftGrid is null ||
-            cell.IsEditing ||
             cell.Column is null ||
             !TryGetEditableField(cell.Column, out _))
         {
             return;
         }
 
-        // Ctrl/Shift 时按网格默认逻辑做多选；普通单击自动进入编辑。
-        if ((Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) != ModifierKeys.None)
+        var modifiers = Keyboard.Modifiers;
+        if ((modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            StartCtrlDragSelection(cell);
+            return;
+        }
+
+        // Shift 选择交给 DataGrid 默认逻辑，但先提交当前编辑，避免编辑框截获选择动作。
+        if ((modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
+        {
+            CommitInlineGridEdit();
+            return;
+        }
+
+        if (cell.IsEditing)
         {
             return;
         }
@@ -97,6 +114,174 @@ public partial class RegisterInspectorPanel
         {
             BeginEditCellFromSingleClick(cell);
         }), DispatcherPriority.Input);
+    }
+
+    private void StartCtrlDragSelection(DataGridCell cell)
+    {
+        if (InlineProtocolDraftGrid is null || !TryGetCellPosition(cell, out var rowIndex, out var displayIndex))
+        {
+            return;
+        }
+
+        CommitInlineGridEdit();
+        InlineProtocolDraftGrid.Focus();
+
+        var info = new DataGridCellInfo(cell);
+        if (!info.IsValid)
+        {
+            return;
+        }
+
+        _isCtrlDragSelecting = true;
+        _ctrlDragAnchorRowIndex = rowIndex;
+        _ctrlDragAnchorDisplayIndex = displayIndex;
+        _ctrlDragAddsSelection = !InlineProtocolDraftGrid.SelectedCells.Contains(info);
+
+        ApplyCtrlSelectionRange(rowIndex, displayIndex);
+        InlineProtocolDraftGrid.CurrentCell = info;
+        cell.Focus();
+        UpdatePasteAnchorFromElement(cell);
+        Mouse.Capture(InlineProtocolDraftGrid, CaptureMode.SubTree);
+    }
+
+    private void InlineProtocolDraftGrid_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isCtrlDragSelecting ||
+            InlineProtocolDraftGrid is null ||
+            e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control)
+        {
+            FinishCtrlDragSelection();
+            return;
+        }
+
+        if (FindParent<DataGridCell>(e.OriginalSource as DependencyObject) is not { } cell ||
+            cell.Column is null ||
+            !TryGetEditableField(cell.Column, out _))
+        {
+            return;
+        }
+
+        if (!TryGetCellPosition(cell, out var rowIndex, out var displayIndex))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        ApplyCtrlSelectionRange(rowIndex, displayIndex);
+        InlineProtocolDraftGrid.CurrentCell = new DataGridCellInfo(cell);
+        UpdatePasteAnchorFromElement(cell);
+    }
+
+    private void InlineProtocolDraftGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isCtrlDragSelecting)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        FinishCtrlDragSelection();
+    }
+
+    private void InlineProtocolDraftGrid_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        FinishCtrlDragSelection();
+    }
+
+    private void FinishCtrlDragSelection()
+    {
+        if (!_isCtrlDragSelecting)
+        {
+            return;
+        }
+
+        _isCtrlDragSelecting = false;
+        _ctrlDragAnchorRowIndex = -1;
+        _ctrlDragAnchorDisplayIndex = -1;
+
+        if (Mouse.Captured == InlineProtocolDraftGrid)
+        {
+            Mouse.Capture(null);
+        }
+    }
+
+    private void ApplyCtrlSelectionRange(int rowIndex, int displayIndex)
+    {
+        if (InlineProtocolDraftGrid is null ||
+            _ctrlDragAnchorRowIndex < 0 ||
+            _ctrlDragAnchorDisplayIndex < 0)
+        {
+            return;
+        }
+
+        var firstRow = Math.Min(_ctrlDragAnchorRowIndex, rowIndex);
+        var lastRow = Math.Max(_ctrlDragAnchorRowIndex, rowIndex);
+        var firstDisplay = Math.Min(_ctrlDragAnchorDisplayIndex, displayIndex);
+        var lastDisplay = Math.Max(_ctrlDragAnchorDisplayIndex, displayIndex);
+        var columns = InlineProtocolDraftGrid.Columns
+            .Where(c => c.DisplayIndex >= firstDisplay && c.DisplayIndex <= lastDisplay && TryGetEditableField(c, out _))
+            .ToList();
+
+        for (var i = firstRow; i <= lastRow; i++)
+        {
+            if (InlineProtocolDraftGrid.Items[i] is not InlineProtocolDraftRow row)
+            {
+                continue;
+            }
+
+            foreach (var column in columns)
+            {
+                var info = new DataGridCellInfo(row, column);
+                if (!info.IsValid)
+                {
+                    continue;
+                }
+
+                if (_ctrlDragAddsSelection)
+                {
+                    if (!InlineProtocolDraftGrid.SelectedCells.Contains(info))
+                    {
+                        InlineProtocolDraftGrid.SelectedCells.Add(info);
+                    }
+                }
+                else
+                {
+                    if (InlineProtocolDraftGrid.SelectedCells.Contains(info))
+                    {
+                        InlineProtocolDraftGrid.SelectedCells.Remove(info);
+                    }
+                }
+            }
+        }
+    }
+
+    private bool TryGetCellPosition(DataGridCell cell, out int rowIndex, out int displayIndex)
+    {
+        rowIndex = -1;
+        displayIndex = -1;
+
+        if (InlineProtocolDraftGrid is null ||
+            cell.DataContext is not InlineProtocolDraftRow row ||
+            cell.Column is null ||
+            !TryGetEditableField(cell.Column, out _))
+        {
+            return false;
+        }
+
+        rowIndex = InlineProtocolDraftGrid.Items.IndexOf(row);
+        displayIndex = cell.Column.DisplayIndex;
+        return rowIndex >= 0 && displayIndex >= 0;
+    }
+
+    private void CommitInlineGridEdit()
+    {
+        InlineProtocolDraftGrid?.CommitEdit(DataGridEditingUnit.Cell, true);
+        InlineProtocolDraftGrid?.CommitEdit(DataGridEditingUnit.Row, true);
     }
 
     private void BeginEditCellFromSingleClick(DataGridCell cell)
@@ -289,6 +474,12 @@ public partial class RegisterInspectorPanel
 
     private void InlineProtocolDraftGrid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (IsCtrlKey(e.Key))
+        {
+            ExitInlineEditForSelectionMode();
+            return;
+        }
+
         if ((Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control || e.Key != Key.V)
         {
             return;
@@ -296,6 +487,23 @@ public partial class RegisterInspectorPanel
 
         e.Handled = TryPasteDraftFieldsFromClipboard();
     }
+
+    private void ExitInlineEditForSelectionMode()
+    {
+        if (InlineProtocolDraftGrid is null)
+        {
+            return;
+        }
+
+        CommitInlineGridEdit();
+        InlineProtocolDraftGrid.SelectedCells.Clear();
+        InlineProtocolDraftGrid.CurrentCell = default;
+        InlineProtocolDraftGrid.Focus();
+        Keyboard.Focus(InlineProtocolDraftGrid);
+    }
+
+    private static bool IsCtrlKey(Key key)
+        => key is Key.LeftCtrl or Key.RightCtrl;
 
     private bool TryPasteDraftFieldsFromClipboard()
     {
@@ -319,7 +527,7 @@ public partial class RegisterInspectorPanel
                 return true;
             }
 
-            clipboardText = Clipboard.GetText();
+            clipboardText = GetClipboardTextForMatrixPaste();
         }
         catch (Exception ex)
         {
@@ -435,6 +643,19 @@ public partial class RegisterInspectorPanel
         }
     }
 
+    private static string GetClipboardTextForMatrixPaste()
+    {
+        // Excel 的普通文本格式有时会把“单元格内换行”暴露成普通换行；CSV 格式会用引号保留它。
+        if (Clipboard.ContainsData(DataFormats.CommaSeparatedValue) &&
+            Clipboard.GetData(DataFormats.CommaSeparatedValue) is string csvText &&
+            !string.IsNullOrEmpty(csvText))
+        {
+            return csvText;
+        }
+
+        return Clipboard.GetText();
+    }
+
     private static List<List<string>> ParseClipboardMatrix(string rawText)
     {
         if (string.IsNullOrEmpty(rawText))
@@ -442,6 +663,7 @@ public partial class RegisterInspectorPanel
             return new List<List<string>>();
         }
 
+        var delimiter = DetectClipboardDelimiter(rawText);
         var result = new List<List<string>>();
         var row = new List<string>();
         var field = new StringBuilder();
@@ -476,7 +698,7 @@ public partial class RegisterInspectorPanel
                 continue;
             }
 
-            if (ch == '\t' && !inQuotes)
+            if (ch == delimiter && !inQuotes)
             {
                 row.Add(field.ToString());
                 field.Clear();
@@ -516,6 +738,45 @@ public partial class RegisterInspectorPanel
         }
 
         return result;
+    }
+
+    private static char DetectClipboardDelimiter(string rawText)
+    {
+        var tabCount = 0;
+        var commaCount = 0;
+        var inQuotes = false;
+
+        for (var i = 0; i < rawText.Length; i++)
+        {
+            var ch = rawText[i];
+            if (ch == '"')
+            {
+                if (inQuotes && i + 1 < rawText.Length && rawText[i + 1] == '"')
+                {
+                    i++;
+                    continue;
+                }
+
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (inQuotes)
+            {
+                continue;
+            }
+
+            if (ch == '	')
+            {
+                tabCount++;
+            }
+            else if (ch == ',')
+            {
+                commaCount++;
+            }
+        }
+
+        return tabCount > 0 ? '	' : commaCount > 0 ? ',' : '	';
     }
 
     private List<(InlineProtocolDraftRow Row, DraftEditableField Field)> GetSelectedEditableTargets()

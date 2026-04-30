@@ -1,4 +1,5 @@
 using SimulatorApp.Slave.ViewModels;
+using SimulatorApp.Master.Views;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -25,5 +26,14 @@ public partial class RegisterInspectorPanel : UserControl
     {
         if (sender is FrameworkElement { DataContext: InspectorRow row })
             Vm?.RemoveRowCommand.Execute(row);
+    }
+
+    private void ClearRowsWithPassword_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new PasswordDialog { Owner = Window.GetWindow(this) ?? Application.Current.MainWindow };
+        dlg.ShowDialog();
+        if (!dlg.Confirmed) return;
+
+        Vm?.ClearRowsCommand.Execute(null);
     }
 }

@@ -661,7 +661,7 @@ public partial class SlaveViewModel : ObservableObject
     }
 
     /// <summary>创建协议导入设备 ViewModel，并根据参数决定是否添加监听端点和持久化</summary>
-    private async Task AddProtocolDeviceAsync(
+    private async Task<ImportedDeviceViewModel> AddProtocolDeviceAsync(
         SlaveDeviceConfig        config,
         IEnumerable<ProtocolRow> rows,
         bool                     addListener = true,
@@ -715,6 +715,8 @@ public partial class SlaveViewModel : ObservableObject
 
         if (selectAfterAdd)
             SelectedDevice = vm;
+
+        return vm;
     }
 
     [RelayCommand]
@@ -802,6 +804,120 @@ public partial class SlaveViewModel : ObservableObject
             SlaveId  = dlgVm.SlaveId,
         };
         await AddProtocolDeviceAsync(config, dlgVm.GetProtocolRows(), addListener: true);
+    }
+
+    public void BeginEditImportedProtocol(ImportedDeviceViewModel imported)
+    {
+        if (imported.DbId <= 0)
+        {
+            MessageBox.Show("该协议还没有保存到数据库，不能进行替换编辑。", "编辑协议", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var inspectorVm = InspectorList.OfType<RegisterInspectorViewModel>().FirstOrDefault();
+        if (inspectorVm is null)
+        {
+            MessageBox.Show("未找到寄存器检视区域，无法编辑协议。", "编辑协议", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (inspectorVm.Rows.Count > 0)
+        {
+            var result = MessageBox.Show(
+                $"寄存器检视中已有 {inspectorVm.Rows.Count} 条地址内容。\n继续编辑“{imported.DeviceName}”会覆盖当前寄存器检视内容，是否继续？",
+                "确认覆盖寄存器检视",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result != MessageBoxResult.Yes)
+                return;
+        }
+
+        SelectedDevice = inspectorVm;
+        if (_panelCache.GetValueOrDefault(inspectorVm) is RegisterInspectorPanel panel)
+            panel.LoadImportedDeviceForEdit(imported);
+    }
+
+    public async Task ReplaceImportedDeviceFromInspectorAsync(
+        int dbId,
+        NewProtocolDialogViewModel dlgVm,
+        IReadOnlyDictionary<int, ushort> currentValues)
+    {
+        if (_slaveDbService is null)
+            throw new InvalidOperationException("数据库未连接，无法替换协议。");
+
+        var existingConfig = _importedDeviceConfigByDbId.TryGetValue(dbId, out var savedConfig)
+            ? savedConfig
+            : new SlaveDeviceConfig
+            {
+                Id = dbId,
+                Protocol = (int)dlgVm.Protocol,
+                Host = dlgVm.ListenAddress,
+                Port = dlgVm.Port,
+                PortName = dlgVm.ComPort,
+                BaudRate = dlgVm.BaudRate,
+                SlaveId = dlgVm.SlaveId
+            };
+
+        var config = CloneDeviceConfig(existingConfig, dbId);
+        config.Name = dlgVm.DeviceName;
+
+        var rows = dlgVm.GetProtocolRows().ToList();
+        var rowAddressSet = rows.Select(r => r.Address).ToHashSet();
+        await _slaveDbService.SaveDeviceConfigAsync(config, rows);
+
+        foreach (var kv in currentValues.Where(kv => rowAddressSet.Contains(kv.Key)))
+            await _slaveDbService.UpdateRowCurrentValueAsync(dbId, kv.Key, kv.Value);
+
+        var oldVm = ImportedDevices.FirstOrDefault(v => v.DbId == dbId);
+        var wasSelected = ReferenceEquals(SelectedDevice, oldVm);
+        var wasSimulating = oldVm?.IsSimulating == true;
+        var importedIndex = oldVm is null ? -1 : ImportedDevices.IndexOf(oldVm);
+        var deviceIndex = oldVm is null ? -1 : DeviceList.IndexOf(oldVm);
+
+        if (oldVm is not null)
+        {
+            if (oldVm.IsSimulating)
+                oldVm.IsSimulating = false;
+            DetachDeviceSimulationObserver(oldVm);
+            _panelCache.Remove(oldVm);
+            DeviceList.Remove(oldVm);
+            ImportedDevices.Remove(oldVm);
+        }
+
+        var restoredValues = currentValues
+            .Where(kv => rowAddressSet.Contains(kv.Key))
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        var newVm = await AddProtocolDeviceAsync(
+            config,
+            rows,
+            addListener: false,
+            saveToDb: false,
+            currentValues: restoredValues,
+            selectAfterAdd: false);
+
+        if (importedIndex >= 0 && importedIndex < ImportedDevices.Count - 1)
+            ImportedDevices.Move(ImportedDevices.Count - 1, importedIndex);
+        if (deviceIndex >= 0 && deviceIndex < DeviceList.Count - 1)
+            DeviceList.Move(DeviceList.Count - 1, deviceIndex);
+
+        _importedDeviceConfigByDbId[dbId] = CloneDeviceConfig(config, dbId);
+        var listener = Listeners.FirstOrDefault(l => l.DbId == dbId);
+        if (listener is not null)
+        {
+            listener.Protocol = (ProtocolType)config.Protocol;
+            listener.ListenAddress = config.Host;
+            listener.Port = config.Port;
+            listener.ComPort = config.PortName;
+            listener.BaudRate = config.BaudRate;
+            listener.SlaveId = config.SlaveId;
+        }
+
+        newVm.IsSimulating = wasSimulating;
+        if (wasSelected)
+            SelectedDevice = newVm;
+
+        OnPropertyChanged(nameof(HasImportedDevices));
+        LogSys($"protocol-replaced id={dbId} name={config.Name} rows={rows.Count}");
     }
 
     // ----------------------------------------------------------------

@@ -12,8 +12,9 @@ namespace SimulatorApp.Slave.Views.Panels;
 
 public partial class RegisterInspectorPanel
 {
-    public ObservableCollection<InlineProtocolDraftRow> ProtocolDraftRows { get; } = new();
+    public BulkObservableCollection<InlineProtocolDraftRow> ProtocolDraftRows { get; } = new();
     private RegisterInspectorViewModel? _boundInspectorVm;
+    private int _editingImportedDeviceId;
 
     private void InlineProtocolDraftGrid_Loaded(object sender, RoutedEventArgs e)
     {
@@ -74,11 +75,46 @@ public partial class RegisterInspectorPanel
             });
         }
 
-        ProtocolDraftRows.Clear();
-        foreach (var row in rebuilt)
+        ProtocolDraftRows.ReplaceWith(rebuilt);
+    }
+
+    public void LoadImportedDeviceForEdit(ImportedDeviceViewModel imported)
+    {
+        if (DataContext is not RegisterInspectorViewModel inspectorVm)
+            return;
+
+        _editingImportedDeviceId = imported.DbId;
+        InlineDeviceNameBox.Text = imported.DeviceName;
+
+        inspectorVm.LoadRowsForProtocolEdit(imported.Rows
+            .Where(r => !r.IsPending)
+            .Select(r => (r.Address, r.CurrentValueRaw, r.Note ?? string.Empty)));
+
+        BindProtocolDraftRowsToInspector();
+        var draftRows = imported.Rows
+            .Where(r => !r.IsPending)
+            .OrderBy(r => r.Address)
+            .Select(r => new InlineProtocolDraftRow
+            {
+                Address = r.Address,
+                ChineseName = r.ChineseName ?? string.Empty,
+                EnglishName = r.EnglishName ?? string.Empty,
+                Unit = r.Unit ?? string.Empty,
+                Range = r.Range ?? string.Empty,
+                Note = r.Note ?? string.Empty
+            })
+            .ToList();
+
+        ProtocolDraftRows.ReplaceWith(draftRows);
+        foreach (var row in draftRows)
         {
-            ProtocolDraftRows.Add(row);
+            // 编辑导入协议时当前值来自原设备，不能再走“新增地址默认 0”的初始化。
+            if (!_defaultedCurrentValueDraftRows.TryGetValue(row, out _))
+                _defaultedCurrentValueDraftRows.Add(row, CurrentValueDefaultedMarker);
         }
+
+        InlineSaveErrorTextBlock.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#86EFAC"));
+        InlineSaveErrorTextBlock.Text = $"正在编辑“{imported.DeviceName}”，保存后会替换原协议。";
     }
 
     private async void SaveInspectorAsProtocol_Click(object sender, RoutedEventArgs e)
@@ -143,6 +179,11 @@ public partial class RegisterInspectorPanel
         {
             rowIndex++;
             var chineseName = row.ChineseName?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(chineseName))
+            {
+                InlineSaveErrorTextBlock.Text = $"第 {rowIndex} 行中文名为必填。";
+                return;
+            }
 
             previewRows.Add(new ProtocolPreviewRow
             {
@@ -158,7 +199,7 @@ public partial class RegisterInspectorPanel
 
         if (previewRows.Count == 0)
         {
-            InlineSaveErrorTextBlock.Text = "至少需要一条有效寄存器定义（地址必填）。";
+            InlineSaveErrorTextBlock.Text = "至少需要一条有效寄存器定义（地址、中文名必填）。";
             return;
         }
 
@@ -181,7 +222,25 @@ public partial class RegisterInspectorPanel
 
         try
         {
+            if (_editingImportedDeviceId > 0)
+            {
+                var currentValues = _boundInspectorVm is null
+                    ? new Dictionary<int, ushort>()
+                    : _boundInspectorVm.Rows
+                        .GroupBy(r => r.Address)
+                        .ToDictionary(g => g.Key, g => g.First().Value);
+
+                await slaveVm.ReplaceImportedDeviceFromInspectorAsync(_editingImportedDeviceId, dialogVm, currentValues);
+                _editingImportedDeviceId = 0;
+                ClearInspectorDraftAfterSave();
+                InlineSaveErrorTextBlock.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#86EFAC"));
+                InlineSaveErrorTextBlock.Text = "保存成功，已替换原协议设备。";
+                MessageBox.Show("保存成功，已替换原协议设备。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             await slaveVm.AddDeviceFromDialogAsync(dialogVm);
+            ClearInspectorDraftAfterSave();
             InlineSaveErrorTextBlock.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#86EFAC"));
             InlineSaveErrorTextBlock.Text = "保存成功，已加入“协议导入设备”区域。";
             MessageBox.Show("保存成功，已加入“协议导入设备”区域。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -192,6 +251,14 @@ public partial class RegisterInspectorPanel
             InlineSaveErrorTextBlock.Text = $"保存失败：{ex.Message}";
             MessageBox.Show($"保存失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void ClearInspectorDraftAfterSave()
+    {
+        _boundInspectorVm?.Rows.Clear();
+        ProtocolDraftRows.Clear();
+        InlineDeviceNameBox.Text = string.Empty;
+        _defaultedCurrentValueDraftRows.Clear();
     }
 
     private static TContext? FindAncestorDataContext<TContext>(DependencyObject? start)

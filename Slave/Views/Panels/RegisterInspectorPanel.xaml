@@ -31,7 +31,7 @@
                                VerticalAlignment="Center" Margin="8,0,6,0"/>
                     <TextBox Width="55" Style="{StaticResource DataTextBoxStyle}"
                              Text="{Binding BatchCount, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="加载寄存器数量（最多 256）"/>
+                             ToolTip="加载寄存器数量（最多 65535）"/>
                     <Button Content="📥 批量加载" Command="{Binding LoadBatchCommand}"
                             Style="{StaticResource SecondaryButtonStyle}"
                             Margin="8,0,0,0" ToolTip="加载指定范围的寄存器地址到表格"/>
@@ -57,7 +57,7 @@
                             Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0"
                             ToolTip="填写设备信息并保存到协议导入设备"
                             Click="SaveInspectorAsProtocol_Click"/>
-                    <Button Content="🗑 清空" Command="{Binding ClearRowsCommand}"
+                    <Button Content="🗑 清空" Click="ClearRowsWithPassword_Click"
                             Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0"/>
                 </WrapPanel>
 
@@ -100,6 +100,9 @@
                           CanUserDeleteRows="False"
                           Loaded="InlineProtocolDraftGrid_Loaded"
                           PreviewKeyDown="InlineProtocolDraftGrid_PreviewKeyDown"
+                          PreviewMouseMove="InlineProtocolDraftGrid_PreviewMouseMove"
+                          PreviewMouseLeftButtonUp="InlineProtocolDraftGrid_PreviewMouseLeftButtonUp"
+                          LostMouseCapture="InlineProtocolDraftGrid_LostMouseCapture"
                           ItemsSource="{Binding ProtocolDraftRows, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           GridLinesVisibility="Horizontal"
                           HeadersVisibility="Column"
@@ -111,6 +114,11 @@
                           FontSize="12"
                           SelectionMode="Extended"
                           SelectionUnit="CellOrRowHeader"
+                          EnableRowVirtualization="True"
+                          EnableColumnVirtualization="True"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          ScrollViewer.CanContentScroll="True"
                           VerticalAlignment="Stretch"
                           HorizontalAlignment="Stretch"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -161,7 +169,7 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="地址*" Binding="{Binding Address}" Width="90" IsReadOnly="True"
                                             ElementStyle="{StaticResource InlineCellTextStyle}"/>
-                        <DataGridTemplateColumn Header="中文名" Width="140">
+                        <DataGridTemplateColumn Header="中文名*" Width="140">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding ChineseName}"

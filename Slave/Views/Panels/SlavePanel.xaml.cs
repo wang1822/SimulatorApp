@@ -1,10 +1,13 @@
 using SimulatorApp.Shared.Logging;
 using SimulatorApp.Slave.ViewModels;
 using SimulatorApp.Slave.Views;
+using ClosedXML.Excel;
+using Microsoft.Win32;
 using System;
 using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -88,6 +91,80 @@ public partial class SlavePanel : UserControl
 
         if (vm.RemoveImportedDeviceCommand.CanExecute(selected))
             vm.RemoveImportedDeviceCommand.Execute(selected);
+    }
+
+    private void ExportImportedProtocol_Click(object sender, RoutedEventArgs e)
+    {
+        if (ImportedDevicesList.SelectedItem is not ImportedDeviceViewModel selected)
+        {
+            MessageBox.Show(Window.GetWindow(this), "请先在协议导入设备区域选择一个协议。", "导出协议", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (selected.Rows.Count == 0)
+        {
+            MessageBox.Show(Window.GetWindow(this), "当前协议没有可导出的寄存器行。", "导出协议", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "导出协议",
+            FileName = SanitizeExportFileName($"{selected.DeviceName}_协议导出.xlsx"),
+            DefaultExt = ".xlsx",
+            Filter = "Excel 文件 (*.xlsx)|*.xlsx",
+            AddExtension = true,
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true)
+            return;
+
+        try
+        {
+            ExportImportedProtocolToExcel(selected, dialog.FileName);
+            MessageBox.Show(Window.GetWindow(this), "协议导出成功。", "导出协议", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this), $"协议导出失败：{ex.Message}", "导出协议", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private static void ExportImportedProtocolToExcel(ImportedDeviceViewModel device, string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("协议");
+        var headers = new[] { "地址", "中文名", "英文名", "单位", "范围", "描述" };
+
+        for (var i = 0; i < headers.Length; i++)
+            sheet.Cell(1, i + 1).Value = headers[i];
+
+        var rowIndex = 2;
+        foreach (var row in device.Rows.OrderBy(x => x.Address))
+        {
+            sheet.Cell(rowIndex, 1).Value = row.Address;
+            sheet.Cell(rowIndex, 2).Value = row.ChineseName ?? string.Empty;
+            sheet.Cell(rowIndex, 3).Value = row.EnglishName ?? string.Empty;
+            sheet.Cell(rowIndex, 4).Value = row.Unit ?? string.Empty;
+            sheet.Cell(rowIndex, 5).Value = row.Range ?? string.Empty;
+            sheet.Cell(rowIndex, 6).Value = row.Note ?? string.Empty;
+            rowIndex++;
+        }
+
+        var usedRange = sheet.Range(1, 1, Math.Max(1, rowIndex - 1), headers.Length);
+        usedRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        usedRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        sheet.Range(1, 1, 1, headers.Length).Style.Font.Bold = true;
+        sheet.Columns().AdjustToContents();
+        workbook.SaveAs(filePath);
+    }
+
+    private static string SanitizeExportFileName(string fileName)
+    {
+        foreach (var invalid in Path.GetInvalidFileNameChars())
+            fileName = fileName.Replace(invalid, '_');
+        return fileName;
     }
 
     private void ImportedDeviceNameText_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

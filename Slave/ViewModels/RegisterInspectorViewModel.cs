@@ -5,6 +5,8 @@ using SimulatorApp.Shared.Services;
 using SimulatorApp.Slave.Models;
 using SimulatorApp.Slave.Services;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 
 namespace SimulatorApp.Slave.ViewModels;
 
@@ -15,6 +17,9 @@ namespace SimulatorApp.Slave.ViewModels;
 /// </summary>
 public partial class RegisterInspectorViewModel : DeviceViewModelBase
 {
+    private const int MaxRegisterAddress = 65535;
+    private const int MaxBatchCount = 65535;
+
     // ---- DeviceViewModelBase 抽象成员（检视器不绑定固定设备 Model）----
     private sealed class NullModel : DeviceModelBase
     {
@@ -29,7 +34,7 @@ public partial class RegisterInspectorViewModel : DeviceViewModelBase
     protected override void SyncToModel() { } // 直接写 bank，不走 Model
 
     // ---- 寄存器行集合 ----
-    public ObservableCollection<InspectorRow> Rows { get; } = new();
+    public BulkObservableCollection<InspectorRow> Rows { get; } = new();
 
     // ---- 添加单行用的地址输入 ----
     [ObservableProperty] private int _newAddress = 0;
@@ -48,7 +53,7 @@ public partial class RegisterInspectorViewModel : DeviceViewModelBase
     [RelayCommand]
     public void AddRow()
     {
-        if (NewAddress is < 0 or > 65535) return;
+        if (NewAddress is < 0 or > MaxRegisterAddress) return;
         if (Rows.Any(r => r.Address == NewAddress))
         {
             AppLogger.Warn($"寄存器检视：地址 {NewAddress} 已存在");
@@ -56,7 +61,7 @@ public partial class RegisterInspectorViewModel : DeviceViewModelBase
         }
         var row = CreateRow(NewAddress);
         Rows.Add(row);
-        NewAddress = Math.Min(NewAddress + 1, 65535);
+        NewAddress = Math.Min(NewAddress + 1, MaxRegisterAddress);
     }
 
     // ----------------------------------------------------------------
@@ -66,19 +71,30 @@ public partial class RegisterInspectorViewModel : DeviceViewModelBase
     [RelayCommand]
     public void LoadBatch()
     {
-        int count = Math.Clamp(BatchCount, 1, 256);
+        int start = Math.Clamp(BatchStart, 0, MaxRegisterAddress);
+        int maxCountFromStart = MaxRegisterAddress - start + 1;
+        int count = Math.Clamp(BatchCount, 1, Math.Min(MaxBatchCount, maxCountFromStart));
+        int end = start + count - 1;
+        var existingAddresses = Rows.Select(r => r.Address).ToHashSet();
         var toAdd = new List<InspectorRow>();
         for (int i = 0; i < count; i++)
         {
-            int addr = BatchStart + i;
-            if (addr > 65535) break;
-            if (Rows.Any(r => r.Address == addr)) continue;
+            int addr = start + i;
+            if (existingAddresses.Contains(addr)) continue;
+            existingAddresses.Add(addr);
             toAdd.Add(CreateRow(addr));
         }
-        // 追加后整体按地址升序排列
-        foreach (var r in toAdd) Rows.Add(r);
-        SortRows();
-        AppLogger.Info($"寄存器检视：已加载地址 {BatchStart}~{BatchStart + count - 1}，共 {toAdd.Count} 行");
+        // 一次性通知 UI，避免批量加载几万行时 DataGrid 重复刷新。
+        if (Rows.Count == 0 || Rows[^1].Address <= start)
+        {
+            Rows.AddRange(toAdd);
+        }
+        else
+        {
+            Rows.ReplaceWith(Rows.Concat(toAdd).OrderBy(r => r.Address));
+        }
+
+        AppLogger.Info($"寄存器检视：已加载地址 {start}~{end}，共 {toAdd.Count} 行");
     }
 
     // ----------------------------------------------------------------
@@ -113,6 +129,27 @@ public partial class RegisterInspectorViewModel : DeviceViewModelBase
         AppLogger.Info("寄存器检视：已清空");
     }
 
+    public void LoadRowsForProtocolEdit(IEnumerable<(int Address, ushort Value, string Note)> rows)
+    {
+        var loaded = rows
+            .Where(r => r.Address is >= 0 and <= MaxRegisterAddress)
+            .GroupBy(r => r.Address)
+            .Select(g => g.First())
+            .OrderBy(r => r.Address)
+            .Select(r =>
+            {
+                var row = CreateRow(r.Address);
+                row.Value = r.Value;
+                row.Note = r.Note ?? string.Empty;
+                _bank.Write(r.Address, r.Value);
+                return row;
+            })
+            .ToList();
+
+        Rows.ReplaceWith(loaded);
+        AppLogger.Info($"寄存器检视：已载入协议编辑行 {loaded.Count} 条");
+    }
+
     // ----------------------------------------------------------------
     // 内部辅助
     // ----------------------------------------------------------------
@@ -127,9 +164,75 @@ public partial class RegisterInspectorViewModel : DeviceViewModelBase
 
     private void SortRows()
     {
-        var sorted = Rows.OrderBy(r => r.Address).ToList();
-        Rows.Clear();
-        foreach (var r in sorted) Rows.Add(r);
+        for (int i = 1; i < Rows.Count; i++)
+        {
+            if (Rows[i - 1].Address <= Rows[i].Address) continue;
+
+            Rows.ReplaceWith(Rows.OrderBy(r => r.Address));
+            return;
+        }
+    }
+}
+
+public sealed class BulkObservableCollection<T> : ObservableCollection<T>
+{
+    private bool _suppressNotification;
+
+    public void AddRange(IEnumerable<T> items)
+    {
+        var list = items as ICollection<T> ?? items.ToList();
+        if (list.Count == 0) return;
+
+        _suppressNotification = true;
+        try
+        {
+            foreach (var item in list)
+                Items.Add(item);
+        }
+        finally
+        {
+            _suppressNotification = false;
+        }
+
+        RaiseReset();
+    }
+
+    public void ReplaceWith(IEnumerable<T> items)
+    {
+        var list = items as ICollection<T> ?? items.ToList();
+
+        _suppressNotification = true;
+        try
+        {
+            Items.Clear();
+            foreach (var item in list)
+                Items.Add(item);
+        }
+        finally
+        {
+            _suppressNotification = false;
+        }
+
+        RaiseReset();
+    }
+
+    protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (!_suppressNotification)
+            base.OnCollectionChanged(e);
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (!_suppressNotification)
+            base.OnPropertyChanged(e);
+    }
+
+    private void RaiseReset()
+    {
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
+        OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
+        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 }
 
