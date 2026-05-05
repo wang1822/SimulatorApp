@@ -12,8 +12,9 @@ public interface ISlaveProtocolDbService
     Task<int> SaveDeviceConfigAsync(SlaveDeviceConfig config, IEnumerable<ProtocolRow> rows);
     Task DeleteDeviceConfigAsync(int id);
     Task UpdateDeviceNameAsync(int id, string name);
-    Task<List<(SlaveDeviceConfig Config, List<ProtocolRow> Rows, Dictionary<int, ushort> CurrentValues)>> GetAllDeviceConfigsAsync();
+    Task<List<(SlaveDeviceConfig Config, List<ProtocolRow> Rows, Dictionary<int, ushort> CurrentValues, Dictionary<int, bool> VerifiedValues)>> GetAllDeviceConfigsAsync();
     Task UpdateRowCurrentValueAsync(int configId, int address, ushort value);
+    Task UpdateRowIsVerifiedAsync(int configId, int address, bool isVerified);
     Task DeleteRowAsync(int configId, int address);
     Task InsertRowAsync(int configId, int sortOrder, string chineseName, string englishName,
                         int address, string readWrite, string range, string unit, string note);
@@ -63,7 +64,9 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
             "    FOREIGN KEY (DeviceConfigId) REFERENCES SlaveDeviceConfigs(Id) ON DELETE CASCADE\r\n" +
             ");\r\n\r\n" +
             "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigRows') AND name='CurrentValue')\r\n" +
-            "    ALTER TABLE SlaveDeviceConfigRows ADD CurrentValue INT NOT NULL DEFAULT 0;";
+            "    ALTER TABLE SlaveDeviceConfigRows ADD CurrentValue INT NOT NULL DEFAULT 0;\r\n" +
+            "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigRows') AND name='IsVerified')\r\n" +
+            "    ALTER TABLE SlaveDeviceConfigRows ADD IsVerified BIT NOT NULL DEFAULT 0;";
         await using var cmd = new SqlCommand(ddl, conn);
         await cmd.ExecuteNonQueryAsync();
         AppLogger.Info("从站协议数据库初始化完成");
@@ -125,8 +128,8 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
             int order = 0;
             const string insRow =
                 "INSERT INTO SlaveDeviceConfigRows " +
-                "    (DeviceConfigId, SortOrder, Address, ChineseName, EnglishName, ReadWrite, Range, Unit, Note, CurrentValue) " +
-                "VALUES (@cfgId, @so, @addr, @cn, @en, @rw, @range, @unit, @note, 0)";
+                "    (DeviceConfigId, SortOrder, Address, ChineseName, EnglishName, ReadWrite, Range, Unit, Note, CurrentValue, IsVerified) " +
+                "VALUES (@cfgId, @so, @addr, @cn, @en, @rw, @range, @unit, @note, 0, 0)";
             foreach (var (cn, en, addr, rw, range, unit, note) in rows)
             {
                 await using var row_cmd = new SqlCommand(insRow, conn, tx);
@@ -176,7 +179,7 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
         AppLogger.Info($"协议设备名称已更新：Id={id}, Name={trimmed}");
     }
 
-    public async Task<List<(SlaveDeviceConfig Config, List<ProtocolRow> Rows, Dictionary<int, ushort> CurrentValues)>> GetAllDeviceConfigsAsync()
+    public async Task<List<(SlaveDeviceConfig Config, List<ProtocolRow> Rows, Dictionary<int, ushort> CurrentValues, Dictionary<int, bool> VerifiedValues)>> GetAllDeviceConfigsAsync()
     {
         await using var conn = new SqlConnection(_cs);
         await conn.OpenAsync();
@@ -207,10 +210,11 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
             }
         }
 
-        var rowDict   = new Dictionary<int, List<ProtocolRow>>();
-        var valueDict = new Dictionary<int, Dictionary<int, ushort>>();
+        var rowDict      = new Dictionary<int, List<ProtocolRow>>();
+        var valueDict    = new Dictionary<int, Dictionary<int, ushort>>();
+        var verifiedDict = new Dictionary<int, Dictionary<int, bool>>();
         const string sqlRows =
-            "SELECT DeviceConfigId, ChineseName, EnglishName, Address, ReadWrite, Range, Unit, Note, CurrentValue " +
+            "SELECT DeviceConfigId, ChineseName, EnglishName, Address, ReadWrite, Range, Unit, Note, CurrentValue, IsVerified " +
             "FROM SlaveDeviceConfigRows " +
             "ORDER BY DeviceConfigId, SortOrder";
         await using (var cmd = new SqlCommand(sqlRows, conn))
@@ -218,22 +222,27 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
         {
             while (await rdr.ReadAsync())
             {
-                var cfgId  = rdr.GetInt32(0);
-                var row    = ((string)rdr[1], (string)rdr[2], (int)rdr[3],
-                              (string)rdr[4], (string)rdr[5], (string)rdr[6], (string)rdr[7]);
-                var curVal = (ushort)(int)rdr[8];
-                if (!rowDict.ContainsKey(cfgId))   rowDict[cfgId]   = new();
-                if (!valueDict.ContainsKey(cfgId)) valueDict[cfgId] = new();
+                var cfgId    = rdr.GetInt32(0);
+                var addr     = (int)rdr[3];
+                var row      = ((string)rdr[1], (string)rdr[2], addr,
+                                (string)rdr[4], (string)rdr[5], (string)rdr[6], (string)rdr[7]);
+                var curVal   = (ushort)(int)rdr[8];
+                var verified = rdr.GetBoolean(9);
+                if (!rowDict.ContainsKey(cfgId))      rowDict[cfgId]      = new();
+                if (!valueDict.ContainsKey(cfgId))    valueDict[cfgId]    = new();
+                if (!verifiedDict.ContainsKey(cfgId)) verifiedDict[cfgId] = new();
                 rowDict[cfgId].Add(row);
-                valueDict[cfgId][(int)rdr[3]] = curVal;
+                valueDict[cfgId][addr] = curVal;
+                verifiedDict[cfgId][addr] = verified;
             }
         }
 
         return configs
             .Select(c => (
                 c,
-                rowDict.GetValueOrDefault(c.Id)   ?? new List<ProtocolRow>(),
-                valueDict.GetValueOrDefault(c.Id) ?? new Dictionary<int, ushort>()
+                rowDict.GetValueOrDefault(c.Id)      ?? new List<ProtocolRow>(),
+                valueDict.GetValueOrDefault(c.Id)    ?? new Dictionary<int, ushort>(),
+                verifiedDict.GetValueOrDefault(c.Id) ?? new Dictionary<int, bool>()
             ))
             .ToList();
     }
@@ -248,6 +257,21 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
             "WHERE DeviceConfigId=@cfgId AND Address=@addr";
         await using var cmd = new SqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@val",   (int)value);
+        cmd.Parameters.AddWithValue("@cfgId", configId);
+        cmd.Parameters.AddWithValue("@addr",  address);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>实时更新 API 比对通过状态（绿点）。</summary>
+    public async Task UpdateRowIsVerifiedAsync(int configId, int address, bool isVerified)
+    {
+        await using var conn = new SqlConnection(_cs);
+        await conn.OpenAsync();
+        const string sql =
+            "UPDATE SlaveDeviceConfigRows SET IsVerified=@val " +
+            "WHERE DeviceConfigId=@cfgId AND Address=@addr";
+        await using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@val",   isVerified);
         cmd.Parameters.AddWithValue("@cfgId", configId);
         cmd.Parameters.AddWithValue("@addr",  address);
         await cmd.ExecuteNonQueryAsync();
@@ -274,8 +298,8 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
         await conn.OpenAsync();
         const string sql =
             "INSERT INTO SlaveDeviceConfigRows " +
-            "    (DeviceConfigId, SortOrder, Address, ChineseName, EnglishName, ReadWrite, Range, Unit, Note, CurrentValue) " +
-            "VALUES (@cfgId, @so, @addr, @cn, @en, @rw, @range, @unit, @note, 0)";
+            "    (DeviceConfigId, SortOrder, Address, ChineseName, EnglishName, ReadWrite, Range, Unit, Note, CurrentValue, IsVerified) " +
+            "VALUES (@cfgId, @so, @addr, @cn, @en, @rw, @range, @unit, @note, 0, 0)";
         await using var cmd = new SqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@cfgId", configId);
         cmd.Parameters.AddWithValue("@so",    sortOrder);

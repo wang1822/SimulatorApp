@@ -1,5 +1,6 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SimulatorApp.Master.Services;
 using SimulatorApp.Shared.Logging;
 using SimulatorApp.Shared.Services;
 using SimulatorApp.Slave.Models;
@@ -59,6 +60,32 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
 
     /// <summary>搜索关键词（同时匹配中英文名）</summary>
     [ObservableProperty] private string _searchText = "";
+
+    // API 比对（与主站一致：API + Token，匹配英文名/中文名后点亮绿点）
+    [ObservableProperty] private string _apiUrl = "";
+    [ObservableProperty] private string _apiAuthorization = "";
+    [ObservableProperty] private string _verifyToleranceText = "0.5";
+    [ObservableProperty] private string _verifyStatusText = "通过 0 个 / 未通过 0 个";
+    [ObservableProperty] private int _verifyFailCount;
+
+    private bool TryGetVerifyTolerance(out double tolerance)
+    {
+        var text = (VerifyToleranceText ?? string.Empty).Trim();
+        if (text.StartsWith(".", StringComparison.Ordinal)) text = "0" + text;
+        if (text.StartsWith("-.", StringComparison.Ordinal)) text = "-0" + text[1..];
+
+        if (double.TryParse(text, System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.CurrentCulture, out tolerance)
+            || double.TryParse(text, System.Globalization.NumberStyles.Float,
+                               System.Globalization.CultureInfo.InvariantCulture, out tolerance))
+        {
+            tolerance = Math.Abs(tolerance);
+            return true;
+        }
+
+        tolerance = 0.5;
+        return false;
+    }
 
     [RelayCommand]
     public void Search() => FilteredRows.Refresh();
@@ -170,7 +197,12 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
                 if (DbService != null && DbId > 0)
                     _ = DbService.UpdateRowMetadataAsync(DbId, capturedAddr, cn, en);
             },
-            onCheckedChanged: () => OnPropertyChanged(nameof(IsAllChecked)));
+            onCheckedChanged: () => OnPropertyChanged(nameof(IsAllChecked)),
+            onVerifyCommit: (addr, verified) =>
+            {
+                if (DbService != null && DbId > 0)
+                    _ = DbService.UpdateRowIsVerifiedAsync(DbId, addr, verified);
+            });
     }
 
     public void BeginRename()
@@ -284,6 +316,85 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
         }
     }
 
+    public void RestoreVerifiedValues(System.Collections.Generic.Dictionary<int, bool> savedValues)
+    {
+        foreach (var row in Rows)
+        {
+            if (savedValues.TryGetValue(row.Address, out var v))
+                row.RestoreIsVerified(v);
+        }
+        RefreshVerifySummary();
+    }
+
+    [RelayCommand]
+    public void ToggleVerifyRow(ImportedRegisterRow? row)
+    {
+        if (row == null || row.IsPending) return;
+        row.IsVerified = !row.IsVerified;
+        RefreshVerifySummary();
+    }
+
+    [RelayCommand]
+    public async System.Threading.Tasks.Task VerifyOnceAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ApiUrl))
+        {
+            RefreshVerifySummary();
+            AppLogger.Warn("从站协议导入 API 比对失败：未填写 API 地址");
+            return;
+        }
+
+        await RunVerifyAsync(System.Threading.CancellationToken.None);
+    }
+
+    private async System.Threading.Tasks.Task RunVerifyAsync(System.Threading.CancellationToken ct)
+    {
+        try
+        {
+            if (!TryGetVerifyTolerance(out var tolerance))
+            {
+                RefreshVerifySummary();
+                AppLogger.Warn($"从站协议导入 API 比对失败：device={DeviceName}, 误差格式无效 value={VerifyToleranceText}");
+                return;
+            }
+
+            var apiData = await ApiVerifyService.FetchNumericFieldsAsync(ApiUrl, ApiAuthorization, ct);
+            var snapshot = Rows.Where(r => !r.IsPending)
+                               .Select(r => (row: r, cn: r.ChineseName, en: r.EnglishName, value: (double)r.CurrentValueRaw))
+                               .ToList();
+
+            int newlyMatched = 0;
+            foreach (var item in snapshot)
+            {
+                bool matched = ApiVerifyService.TryMatch(apiData, item.en, out double apiVal)
+                            || ApiVerifyService.TryMatch(apiData, item.cn, out apiVal);
+                bool ok = matched && Math.Abs(apiVal - item.value) <= tolerance;
+                if (ok && !item.row.IsVerified)
+                {
+                    item.row.IsVerified = true;
+                    newlyMatched++;
+                }
+            }
+
+            RefreshVerifySummary();
+            AppLogger.Info($"从站协议导入 API 比对：device={DeviceName}, 本次新增={newlyMatched}, 误差≤{tolerance}, {VerifyStatusText}");
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            RefreshVerifySummary();
+            AppLogger.Warn($"从站协议导入 API 比对失败：device={DeviceName}, {ex.Message}");
+        }
+    }
+
+    private void RefreshVerifySummary()
+    {
+        int totalRows = Rows.Count(r => !r.IsPending);
+        int totalVerified = Rows.Count(r => !r.IsPending && r.IsVerified);
+        VerifyFailCount = totalRows - totalVerified;
+        VerifyStatusText = $"通过 {totalVerified} 个 / 未通过 {VerifyFailCount} 个";
+    }
+
     /// <summary>删除一行（含密码验证）。返回 true 表示已删除，false 表示取消或密码错误。</summary>
     public bool TryDeleteRow(ImportedRegisterRow row)
     {
@@ -372,9 +483,9 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
 }
 
 /// <summary>
-/// 显示模式：十进制 / 二进制
+/// 显示模式：十进制 / 二进制 / 十六进制
 /// </summary>
-public enum RegisterValueDisplayMode { Decimal, Binary }
+public enum RegisterValueDisplayMode { Decimal, Binary, Hexadecimal }
 
 /// <summary>单条导入寄存器行（支持读写当前值、内联编辑名称）</summary>
 public sealed partial class ImportedRegisterRow : ObservableObject
@@ -405,11 +516,13 @@ public sealed partial class ImportedRegisterRow : ObservableObject
     {
         OnPropertyChanged(nameof(IsDecimalMode));
         OnPropertyChanged(nameof(IsBinaryMode));
+        OnPropertyChanged(nameof(IsHexMode));
         OnPropertyChanged(nameof(CurrentValueDisplay));
     }
 
     public bool IsDecimalMode => DisplayMode == RegisterValueDisplayMode.Decimal;
     public bool IsBinaryMode  => DisplayMode == RegisterValueDisplayMode.Binary;
+    public bool IsHexMode     => DisplayMode == RegisterValueDisplayMode.Hexadecimal;
 
     // ── 当前寄存器原始值（定时从 RegisterBank 刷新）────────────────
     [ObservableProperty]
@@ -419,9 +532,12 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         => OnPropertyChanged(nameof(CurrentValueDisplay));
 
     /// <summary>按显示模式格式化的当前值字符串</summary>
-    public string CurrentValueDisplay => DisplayMode == RegisterValueDisplayMode.Binary
-        ? Convert.ToString(_currentValueRaw, 2).PadLeft(16, '0')
-        : _currentValueRaw.ToString();
+    public string CurrentValueDisplay => DisplayMode switch
+    {
+        RegisterValueDisplayMode.Binary => Convert.ToString(CurrentValueRaw, 2).PadLeft(16, '0'),
+        RegisterValueDisplayMode.Hexadecimal => $"0x{CurrentValueRaw:X4}",
+        _ => CurrentValueRaw.ToString()
+    };
 
     // ── 写入输入框文本（编辑时绑定）────────────────────────────────
     [ObservableProperty]
@@ -429,21 +545,30 @@ public sealed partial class ImportedRegisterRow : ObservableObject
 
     // ── 勾选状态（随机生成时使用）──────────────────────────────────
     [ObservableProperty] private bool _isChecked;
+    [ObservableProperty] private bool _isVerified;
+
+    private bool _suppressVerifyCommit;
 
     partial void OnIsCheckedChanged(bool value) => _onCheckedChanged?.Invoke();
+    partial void OnIsVerifiedChanged(bool value)
+    {
+        if (!_suppressVerifyCommit && !IsPending) _onVerifyCommit?.Invoke(Address, value);
+    }
 
     // ── 回调 ───────────────────────────────────────────────────────
     private readonly RegisterBank                _bank;
     private readonly Action<int, ushort>?        _onCommit;
     private readonly Action<string, string>?     _onMetaCommit;
     private readonly Action?                     _onCheckedChanged;
+    private readonly Action<int, bool>?          _onVerifyCommit;
 
     public ImportedRegisterRow(string chineseName, string englishName, int address,
                                 string readWrite, string range, string unit, string note,
                                 RegisterBank bank,
                                 Action<int, ushort>?    onCommit        = null,
                                 Action<string, string>? onMetaCommit    = null,
-                                Action?                 onCheckedChanged = null)
+                                Action?                 onCheckedChanged = null,
+                                Action<int, bool>?      onVerifyCommit  = null)
     {
         // 直接赋字段，绕过 ObservableProperty setter，避免构造时触发回调
         _chineseName      = chineseName          ?? string.Empty;
@@ -456,7 +581,16 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         _bank             = bank;
         _onCommit         = onCommit;
         _onMetaCommit     = onMetaCommit;
-        _onCheckedChanged = onCheckedChanged;   // 最后赋值，确保初始化不触发
+        _onCheckedChanged = onCheckedChanged;
+        _onVerifyCommit   = onVerifyCommit;     // 最后赋值，确保初始化不触发
+    }
+
+    public void RestoreIsVerified(bool value)
+    {
+        if (IsVerified == value) return;
+        _suppressVerifyCommit = true;
+        try { IsVerified = value; }
+        finally { _suppressVerifyCommit = false; }
     }
 
     /// <summary>将指定值写入 RegisterBank 并触发 DB 持久化（供随机生成调用）。</summary>
@@ -474,10 +608,15 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         catch { /* 地址越界时忽略 */ }
     }
 
-    /// <summary>右键菜单切换显示模式命令（"dec" = 十进制，"bin" = 二进制）</summary>
+    /// <summary>右键菜单切换显示模式命令（"dec" = 十进制，"bin" = 二进制，"hex" = 十六进制）</summary>
     [RelayCommand]
     public void SetDisplayMode(string? key)
-        => DisplayMode = key == "bin" ? RegisterValueDisplayMode.Binary : RegisterValueDisplayMode.Decimal;
+        => DisplayMode = key switch
+        {
+            "bin" => RegisterValueDisplayMode.Binary,
+            "hex" => RegisterValueDisplayMode.Hexadecimal,
+            _ => RegisterValueDisplayMode.Decimal
+        };
 
     /// <summary>
     /// 将 WriteValueText 解析后写入 RegisterBank，并触发 DB 持久化。
@@ -489,11 +628,25 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         if (string.IsNullOrEmpty(text)) return false;
 
         ushort val;
-        if (DisplayMode == RegisterValueDisplayMode.Binary)
+        var cleaned = text.Replace(" ", "").Replace("_", "");
+
+        if (cleaned.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
         {
-            var cleaned = text.Replace(" ", "").Replace("_", "");
+            try { val = Convert.ToUInt16(cleaned[2..], 2); }
+            catch { return false; }
+        }
+        else if (cleaned.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!ushort.TryParse(cleaned[2..], System.Globalization.NumberStyles.HexNumber, null, out val)) return false;
+        }
+        else if (DisplayMode == RegisterValueDisplayMode.Binary)
+        {
             try { val = Convert.ToUInt16(cleaned, 2); }
             catch { return false; }
+        }
+        else if (DisplayMode == RegisterValueDisplayMode.Hexadecimal)
+        {
+            if (!ushort.TryParse(cleaned, System.Globalization.NumberStyles.HexNumber, null, out val)) return false;
         }
         else
         {

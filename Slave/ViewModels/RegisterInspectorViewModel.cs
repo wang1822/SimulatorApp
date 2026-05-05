@@ -118,6 +118,27 @@ public partial class RegisterInspectorViewModel : DeviceViewModelBase
         if (row != null) Rows.Remove(row);
     }
 
+    public int RemoveRowsByAddresses(IEnumerable<int> addresses)
+    {
+        var addressSet = addresses
+            .Where(address => address is >= 0 and <= MaxRegisterAddress)
+            .ToHashSet();
+        if (addressSet.Count == 0)
+        {
+            return 0;
+        }
+
+        var originalCount = Rows.Count;
+        Rows.ReplaceWith(Rows.Where(row => !addressSet.Contains(row.Address)));
+        var removedCount = originalCount - Rows.Count;
+        if (removedCount > 0)
+        {
+            AppLogger.Info($"寄存器检视：已删除选中记录 {removedCount} 条");
+        }
+
+        return removedCount;
+    }
+
     // ----------------------------------------------------------------
     // 命令：清空所有行
     // ----------------------------------------------------------------

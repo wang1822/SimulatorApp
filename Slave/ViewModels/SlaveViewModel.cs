@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
@@ -644,11 +644,11 @@ public partial class SlaveViewModel : ObservableObject
             OnPropertyChanged(nameof(HasImportedDevices));
 
             var configs = await _slaveDbService.GetAllDeviceConfigsAsync();
-            foreach (var (cfg, rows, currentValues) in configs)
+            foreach (var (cfg, rows, currentValues, verifiedValues) in configs)
             {
                 if (cfg.Id > 0)
                     _importedDeviceConfigByDbId[cfg.Id] = CloneDeviceConfig(cfg, cfg.Id);
-                await AddProtocolDeviceAsync(cfg, rows, addListener: false, saveToDb: false, currentValues: currentValues, selectAfterAdd: false);
+                await AddProtocolDeviceAsync(cfg, rows, addListener: false, saveToDb: false, currentValues: currentValues, verifiedValues: verifiedValues, selectAfterAdd: false);
             }
 
             if (configs.Count > 0)
@@ -667,6 +667,7 @@ public partial class SlaveViewModel : ObservableObject
         bool                     addListener = true,
         bool                     saveToDb    = true,
         Dictionary<int, ushort>? currentValues = null,
+        Dictionary<int, bool>?   verifiedValues = null,
         bool                     selectAfterAdd = true)
     {
         var rowList = rows.ToList();
@@ -678,6 +679,7 @@ public partial class SlaveViewModel : ObservableObject
         vm.PasswordVerifier = VerifyPassword;
         AttachDeviceSimulationObserver(vm);
         if (currentValues != null) vm.RestoreCurrentValues(currentValues);
+        if (verifiedValues != null) vm.RestoreVerifiedValues(verifiedValues);
         _panelCache[vm] = new ImportedDevicePanel { DataContext = vm };
         DeviceList.Add(vm);
         ImportedDevices.Add(vm);
@@ -997,7 +999,26 @@ public partial class SlaveViewModel : ObservableObject
         MarkDeviceRequestActivity(listener, addr, qty, nowUtc);
         var protocolText = listener.Protocol == ProtocolType.Tcp ? "TCP" : "RTU";
         var fcText = $"FC{fc:D2}";
-        LogReq($"{protocolText} {fcText}  addr={addr}  qty={qty}  src={sourceText}");
+        var valueDetails = BuildRequestValueDetails(addr, qty);
+        LogReq($"{protocolText} {fcText}  addr={addr}  qty={qty}  src={sourceText}{valueDetails}");
+    }
+
+    private string BuildRequestValueDetails(int addr, int qty)
+    {
+        if (qty <= 0)
+            return string.Empty;
+
+        try
+        {
+            var values = _bank.ReadRange(addr, qty);
+            var parts = values
+                .Select((value, index) => $"{addr + index}:{value}(0x{value:X4})");
+            return $"  values=[{string.Join(", ", parts)}]";
+        }
+        catch (Exception ex)
+        {
+            return $"  values=<read-failed:{ex.Message}>";
+        }
     }
 
     private void EnsureTcpConnectionMonitorRunning()

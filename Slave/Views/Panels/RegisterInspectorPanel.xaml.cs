@@ -1,5 +1,6 @@
 using SimulatorApp.Slave.ViewModels;
 using SimulatorApp.Master.Views;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -26,6 +27,38 @@ public partial class RegisterInspectorPanel : UserControl
     {
         if (sender is FrameworkElement { DataContext: InspectorRow row })
             Vm?.RemoveRowCommand.Execute(row);
+    }
+
+    private void DeleteSelectedRows_Click(object sender, RoutedEventArgs e)
+    {
+        InlineProtocolDraftGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        InlineProtocolDraftGrid.CommitEdit(DataGridEditingUnit.Row, true);
+
+        var selectedRows = InlineProtocolDraftGrid.SelectedCells
+            .Select(cell => cell.Item)
+            .OfType<InlineProtocolDraftRow>()
+            .Concat(InlineProtocolDraftGrid.SelectedItems.OfType<InlineProtocolDraftRow>())
+            .Distinct()
+            .ToList();
+
+        if (selectedRows.Count == 0 && InlineProtocolDraftGrid.CurrentItem is InlineProtocolDraftRow currentRow)
+        {
+            selectedRows.Add(currentRow);
+        }
+
+        if (selectedRows.Count == 0)
+        {
+            InlineSaveErrorTextBlock.Text = "请先选中要删除的记录行。";
+            return;
+        }
+
+        var removedCount = Vm?.RemoveRowsByAddresses(selectedRows.Select(row => row.Address)) ?? 0;
+        InlineProtocolDraftGrid.SelectedCells.Clear();
+        InlineProtocolDraftGrid.SelectedItems.Clear();
+
+        InlineSaveErrorTextBlock.Text = removedCount > 0
+            ? $"已删除选中记录 {removedCount} 条。"
+            : "未找到可删除的选中记录。";
     }
 
     private void ClearRowsWithPassword_Click(object sender, RoutedEventArgs e)

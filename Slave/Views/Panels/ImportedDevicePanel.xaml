@@ -1,8 +1,12 @@
-<UserControl x:Class="SimulatorApp.Slave.Views.Panels.ImportedDevicePanel"
+﻿<UserControl x:Class="SimulatorApp.Slave.Views.Panels.ImportedDevicePanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:SimulatorApp.Shared.Converters"
              Background="{StaticResource BackgroundBrush}">
     <Grid>
+        <Grid.Resources>
+            <conv:BoolToColorConverter x:Key="BoolToColor"/>
+        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -46,9 +50,44 @@
                          Padding="6,0" FontSize="12" VerticalContentAlignment="Center"
                          ToolTip="输入关键词，匹配中文名或英文名，按 Enter 或「搜索」按钮筛选"
                          KeyDown="SearchBox_KeyDown"/>
-                <TextBlock Text="{Binding DeviceName}"
-                           Foreground="{StaticResource TextPrimaryBrush}"
-                           FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding DeviceName}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                               Margin="0,0,10,0"/>
+                    <TextBlock Text="API:"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                    <TextBox Text="{Binding ApiUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Width="150" Height="24" Margin="0,0,6,0"
+                             Background="#1E293B" Foreground="#E2E8F0" CaretBrush="#E2E8F0"
+                             BorderBrush="#334155" BorderThickness="1"
+                             Padding="6,0" FontSize="12" VerticalContentAlignment="Center"
+                             ToolTip="填写 API 地址，返回 JSON 数值字段后按英文名/中文名比对当前值"/>
+                    <TextBlock Text="Token:"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                    <TextBox Text="{Binding ApiAuthorization, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Width="90" Height="24" Margin="0,0,6,0"
+                             Background="#1E293B" Foreground="#E2E8F0" CaretBrush="#E2E8F0"
+                             BorderBrush="#334155" BorderThickness="1"
+                             Padding="6,0" FontSize="12" VerticalContentAlignment="Center"
+                             ToolTip="Token / Authorization 请求头"/>
+                    <TextBlock Text="误差:"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                    <TextBox Text="{Binding VerifyToleranceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Width="42" Height="24" Margin="0,0,6,0"
+                             Background="#1E293B" Foreground="#E2E8F0" CaretBrush="#E2E8F0"
+                             BorderBrush="#334155" BorderThickness="1"
+                             Padding="4,0" FontFamily="Consolas" FontSize="12"
+                             VerticalContentAlignment="Center" ToolTip="允许误差"/>
+                    <Button Content="立即比对"
+                            Height="24" MinWidth="68" Padding="8,0" Margin="0,0,6,0"
+                            Background="#16A34A" Foreground="White"
+                            BorderThickness="0" Cursor="Hand" FontSize="12"
+                            Command="{Binding VerifyOnceCommand}"/>
+                </StackPanel>
             </DockPanel>
         </Border>
 
@@ -87,15 +126,38 @@
                 <TextBlock DockPanel.Dock="Right" Text="最小值:"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                <!-- 全选复选框 -->
-                <CheckBox x:Name="SelectAllCheckBox"
+                <!-- 全选复选框：贴近随机生成范围，便于先选行再生成 -->
+                <CheckBox DockPanel.Dock="Right"
+                          x:Name="SelectAllCheckBox"
                           IsThreeState="False"
                           Loaded="SelectAllCheckBox_Loaded"
                           Click="SelectAllCheckBox_Click"
                           Content="全选" Foreground="{StaticResource TextPrimaryBrush}"
-                          FontSize="12" VerticalAlignment="Center"/>
+                          FontSize="12" VerticalAlignment="Center"
+                          Margin="0,0,12,0"/>
+                <Button Content="定位未通过"
+                        Height="24" Padding="10,0" Margin="12,0,0,0"
+                        Background="#334155" Foreground="#E2E8F0"
+                        BorderThickness="0" Cursor="Hand" FontSize="12"
+                        Click="NextUnverified_Click"
+                        ToolTip="跳转到下一条未通过（灰点）记录"/>
+                <Border Margin="12,0,0,0"
+                        Padding="8,2"
+                        Background="#0F172A"
+                        BorderBrush="#334155"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{Binding VerifyStatusText}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding VerifyStatusText}"/>
+                </Border>
             </DockPanel>
         </Border>
+
 
         <!-- 寄存器表格：风格与主站 DataGrid 保持一致 -->
         <DataGrid Grid.Row="2" x:Name="RegisterDataGrid"
@@ -222,6 +284,56 @@
             </DataGrid.CellStyle>
 
             <DataGrid.Columns>
+                <!-- API 比对绿点：灰色=未通过，绿色=通过；点击可手动切换并实时入库 -->
+                <DataGridTemplateColumn Header="验" Width="42" CanUserSort="False" IsReadOnly="True"
+                                        ClipboardContentBinding="{Binding IsVerified}">
+                    <DataGridTemplateColumn.CellStyle>
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                            <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTemplateColumn.CellStyle>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Width="28" Height="24"
+                                    Padding="0"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    FocusVisualStyle="{x:Null}"
+                                    Cursor="Hand"
+                                    ToolTip="点击手动标记/取消 API 比对通过"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding DataContext.ToggleVerifyRowCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    CommandParameter="{Binding}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid Background="Transparent">
+                                            <Ellipse x:Name="VerifyDot"
+                                                     Width="12" Height="12"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Stroke="#94A3B8"
+                                                     StrokeThickness="1"
+                                                     Fill="#475569"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsVerified}" Value="True">
+                                                <Setter TargetName="VerifyDot" Property="Fill" Value="#22C55E"/>
+                                                <Setter TargetName="VerifyDot" Property="Stroke" Value="#86EFAC"/>
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="VerifyDot" Property="StrokeThickness" Value="2"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
                 <!-- 勾选列（随机生成） -->
                 <DataGridTemplateColumn Header="" Width="32" CanUserSort="False" IsReadOnly="True"
                                         ClipboardContentBinding="{Binding IsChecked}">
@@ -364,6 +476,10 @@
                                                   IsChecked="{Binding IsBinaryMode, Mode=OneWay}"
                                                   Command="{Binding SetDisplayModeCommand}"
                                                   CommandParameter="bin"/>
+                                        <MenuItem Header="十六进制"
+                                                  IsChecked="{Binding IsHexMode, Mode=OneWay}"
+                                                  Command="{Binding SetDisplayModeCommand}"
+                                                  CommandParameter="hex"/>
                                         <Separator/>
                                         <MenuItem Header="复制" Click="CurrentValue_CopyMenuItem_Click"/>
                                     </ContextMenu>
@@ -386,7 +502,7 @@
                                      FontSize="12"
                                      FontWeight="Bold"
                                      VerticalContentAlignment="Center"
-                                     ToolTip="输入新值后失焦写入寄存器（十进制或二进制，与右键模式一致）"
+                                     ToolTip="输入新值后失焦写入寄存器（十进制、二进制或十六进制，与右键模式一致）"
                                      Loaded="WriteCell_Loaded"
                                      GotFocus="WriteCell_GotFocus"
                                      LostFocus="WriteCell_LostFocus"/>
