@@ -1,4 +1,5 @@
 using SimulatorApp.Shared.Logging;
+using SimulatorApp.Shared.Services;
 using SimulatorApp.Slave.ViewModels;
 using SimulatorApp.Slave.Views;
 using ClosedXML.Excel;
@@ -29,6 +30,13 @@ public partial class SlavePanel : UserControl
     public SlavePanel()
     {
         InitializeComponent();
+        ApplyRolePermissions();
+    }
+
+    private void ApplyRolePermissions()
+    {
+        if (!AuthService.Current.IsAdmin)
+            DeleteImportedProtocolButton.Visibility = Visibility.Collapsed;
     }
 
     private async void UserControl_Loaded_WithAutoDbRefresh(object sender, RoutedEventArgs e)
@@ -83,6 +91,12 @@ public partial class SlavePanel : UserControl
 
     private void DeleteImportedProtocol_Click(object sender, RoutedEventArgs e)
     {
+        if (!AuthService.Current.IsAdmin)
+        {
+            MessageBox.Show(Window.GetWindow(this), "普通用户不能删除协议。", "权限不足", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         if (DataContext is not SlaveViewModel vm)
             return;
 

@@ -1,3 +1,4 @@
+using SimulatorApp.Shared.Services;
 using SimulatorApp.Slave.ViewModels;
 using System.Reflection;
 using System.Windows;
@@ -9,6 +10,12 @@ public partial class ImportedDevicePanel
 {
     private void EditProtocol_Click(object sender, RoutedEventArgs e)
     {
+        if (!AuthService.Current.IsAdmin)
+        {
+            MessageBox.Show(Window.GetWindow(this), "普通用户不能编辑协议。", "权限不足", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         if (DataContext is not ImportedDeviceViewModel imported)
             return;
 

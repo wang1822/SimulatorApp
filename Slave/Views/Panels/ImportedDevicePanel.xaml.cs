@@ -1,3 +1,4 @@
+using SimulatorApp.Shared.Services;
 using SimulatorApp.Slave.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,7 +9,17 @@ namespace SimulatorApp.Slave.Views.Panels;
 
 public partial class ImportedDevicePanel : UserControl
 {
-    public ImportedDevicePanel() => InitializeComponent();
+    public ImportedDevicePanel()
+    {
+        InitializeComponent();
+        ApplyRolePermissions();
+    }
+
+    private void ApplyRolePermissions()
+    {
+        if (!AuthService.Current.IsAdmin)
+            EditProtocolButton.Visibility = Visibility.Collapsed;
+    }
 
     private void AddRow_Click(object sender, RoutedEventArgs e)
     {

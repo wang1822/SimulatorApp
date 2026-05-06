@@ -102,7 +102,7 @@
                 <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
                     <Button Content="💾 新建配置" Command="{Binding NewStationCommand}"
                             Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0"/>
-                    <Button Content="🗑 删除所选站点" Command="{Binding DeleteStationCommand}"
+                    <Button x:Name="DeleteStationButton" Content="🗑 删除所选站点" Command="{Binding DeleteStationCommand}"
                             Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0"/>
                     <Button Content="🔴 清除绿点" Command="{Binding ClearVerifiedCommand}"
                             Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0"/>

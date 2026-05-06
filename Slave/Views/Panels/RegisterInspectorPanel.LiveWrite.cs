@@ -518,7 +518,7 @@ public partial class RegisterInspectorPanel
             return true;
         }
 
-        string clipboardText;
+        List<List<string>> clipboardMatrix;
         try
         {
             if (!Clipboard.ContainsText())
@@ -527,7 +527,7 @@ public partial class RegisterInspectorPanel
                 return true;
             }
 
-            clipboardText = GetClipboardTextForMatrixPaste();
+            clipboardMatrix = GetClipboardMatrixForPaste();
         }
         catch (Exception ex)
         {
@@ -536,7 +536,6 @@ public partial class RegisterInspectorPanel
         }
 
         var selectedTargets = GetSelectedEditableTargets();
-        var clipboardMatrix = ParseClipboardMatrix(clipboardText);
         if (clipboardMatrix.Count == 0)
         {
             SetInlineWriteStatus("剪贴板内容为空，未执行粘贴。", false);
@@ -643,17 +642,83 @@ public partial class RegisterInspectorPanel
         }
     }
 
-    private static string GetClipboardTextForMatrixPaste()
+    private static List<List<string>> GetClipboardMatrixForPaste()
     {
-        // Excel 的普通文本格式有时会把“单元格内换行”暴露成普通换行；CSV 格式会用引号保留它。
+        // Excel 多单元格复制优先使用 CSV/HTML 判断；普通文本只有换行时按单个单元格处理。
         if (Clipboard.ContainsData(DataFormats.CommaSeparatedValue) &&
             Clipboard.GetData(DataFormats.CommaSeparatedValue) is string csvText &&
             !string.IsNullOrEmpty(csvText))
         {
-            return csvText;
+            return ParseClipboardMatrix(csvText);
         }
 
-        return Clipboard.GetText();
+        var plainText = Clipboard.GetText();
+        if (string.IsNullOrEmpty(plainText))
+        {
+            return new List<List<string>>();
+        }
+
+        if (!PlainTextLooksLikeTable(plainText) && !ClipboardHtmlLooksLikeMultipleCells())
+        {
+            return new List<List<string>> { new() { plainText.TrimEnd('\r', '\n') } };
+        }
+
+        return ParseClipboardMatrix(plainText);
+    }
+
+    private static bool PlainTextLooksLikeTable(string text)
+    {
+        var inQuotes = false;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch == '"')
+            {
+                if (inQuotes && i + 1 < text.Length && text[i + 1] == '"')
+                {
+                    i++;
+                    continue;
+                }
+
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (!inQuotes && ch == '	')
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ClipboardHtmlLooksLikeMultipleCells()
+    {
+        if (!Clipboard.ContainsData(DataFormats.Html) ||
+            Clipboard.GetData(DataFormats.Html) is not string html ||
+            string.IsNullOrEmpty(html))
+        {
+            return false;
+        }
+
+        var cellCount = CountHtmlTag(html, "td") + CountHtmlTag(html, "th");
+        var rowCount = CountHtmlTag(html, "tr");
+        return cellCount > 1 || rowCount > 1;
+    }
+
+    private static int CountHtmlTag(string html, string tagName)
+    {
+        var count = 0;
+        var index = 0;
+        var needle = "<" + tagName;
+        while ((index = html.IndexOf(needle, index, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+
+        return count;
     }
 
     private static List<List<string>> ParseClipboardMatrix(string rawText)

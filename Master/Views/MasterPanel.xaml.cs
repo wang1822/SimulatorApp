@@ -1,5 +1,6 @@
 using SimulatorApp.Master.Models;
 using SimulatorApp.Master.ViewModels;
+using SimulatorApp.Shared.Services;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -13,6 +14,7 @@ public partial class MasterPanel : UserControl
     public MasterPanel()
     {
         InitializeComponent();
+        ApplyRolePermissions();
         Loaded += OnLoaded;
     }
 
@@ -35,6 +37,13 @@ public partial class MasterPanel : UserControl
     }
 
     /// <summary>遥控"当前值" TextBox 获焦时全选，方便直接覆盖输入。</summary>
+
+    private void ApplyRolePermissions()
+    {
+        if (!AuthService.Current.IsAdmin)
+            DeleteStationButton.Visibility = Visibility.Collapsed;
+    }
+
     private void CtrlWriteCell_GotFocus(object sender, RoutedEventArgs e)
     {
         if (sender is TextBox tb) tb.SelectAll();

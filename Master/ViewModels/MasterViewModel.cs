@@ -8,6 +8,7 @@ using SimulatorApp.Master.Views;
 using SimulatorApp.Shared.Helpers;
 using SimulatorApp.Shared.Logging;
 using SimulatorApp.Shared.Models;
+using SimulatorApp.Shared.Services;
 using SimulatorApp.Shared.Views;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -338,6 +339,13 @@ public partial class MasterViewModel : ObservableObject
     [RelayCommand]
     public async Task DeleteStationAsync()
     {
+        if (!AuthService.Current.IsAdmin)
+        {
+            AddLog(LogLevel.Warn, "普通用户无权删除所选站点");
+            ThemedMessageBox.Show("普通用户不能删除所选站点。", "权限不足", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         if (SelectedStation == null) return;
         if (!VerifyPassword())
         {

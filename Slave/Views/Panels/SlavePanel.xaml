@@ -173,7 +173,7 @@
             <!-- 中间内容区（左侧设备列表 + 右侧设备面板） -->
             <RowDefinition Height="*"/>
             <!-- 底部日志区 -->
-            <RowDefinition Height="180"/>
+            <RowDefinition Height="112"/>
         </Grid.RowDefinitions>
 
         <!-- ===== 顶部：监听配置列表 ===== -->
@@ -362,7 +362,7 @@
                             </Style>
                         </Button.Style>
                     </Button>
-                    <Button Content="删除协议"
+                    <Button x:Name="DeleteImportedProtocolButton" Content="删除协议"
                             Margin="0,0,6,0"
                             ToolTip="删除当前选中的协议导入设备"
                             Click="DeleteImportedProtocol_Click">
@@ -546,6 +546,7 @@
                                 <TextBlock Text="{Binding DisplayText}"
                                            FontFamily="Consolas, Courier New"
                                            FontSize="11"
+                                           Height="16"
                                            Padding="12,1"
                                            Foreground="{Binding Level, Converter={StaticResource BoolToColor}}">
                                     <TextBlock.Style>

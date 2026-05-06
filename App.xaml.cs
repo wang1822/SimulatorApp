@@ -36,8 +36,19 @@ public partial class App : Application
     // App.xaml 中配置 Startup="App_OnStartup"，由此事件创建并显示主窗口（注入 DI ViewModel）
     private void App_OnStartup(object sender, StartupEventArgs e)
     {
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        var login = new Views.LoginWindow();
+        if (login.ShowDialog() != true)
+        {
+            Shutdown();
+            return;
+        }
+
         var mainVm = Services.GetRequiredService<ViewModels.MainViewModel>();
         var window = new Views.MainWindow(mainVm);
+        MainWindow = window;
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
         window.Show();
     }
 
