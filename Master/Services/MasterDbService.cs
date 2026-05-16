@@ -228,6 +228,33 @@ public class MasterDbService : IMasterDbService
         }
     }
 
+    public async Task<int> AddRegisterConfigAsync(int stationId, MasterRegisterConfig config)
+    {
+        await using var conn = new SqlConnection(_cs);
+        await conn.OpenAsync();
+
+        const string maxSortSql = "SELECT ISNULL(MAX(SortOrder), -1) + 1 FROM MasterRegisterConfigs WHERE StationId=@StationId";
+        await using (var sortCmd = new SqlCommand(maxSortSql, conn))
+        {
+            sortCmd.Parameters.AddWithValue("@StationId", stationId);
+            config.SortOrder = (int)(await sortCmd.ExecuteScalarAsync())!;
+        }
+
+        config.StationId = stationId;
+        const string ins = """
+            INSERT INTO MasterRegisterConfigs
+                (StationId,StartAddress,Quantity,VariableName,ChineseName,ReadWrite,Unit,
+                 DataType,RegisterDataType,ScaleFactor,Offset,ValueRange,Description,Category,SortOrder)
+            OUTPUT INSERTED.Id
+            VALUES (@StationId,@StartAddress,@Quantity,@VariableName,@ChineseName,@ReadWrite,@Unit,
+                    @DataType,@RegisterDataType,@ScaleFactor,@Offset,@ValueRange,@Description,@Category,@SortOrder)
+            """;
+        await using var cmd = new SqlCommand(ins, conn);
+        AddConfigParams(cmd, config);
+        int newId = (int)(await cmd.ExecuteScalarAsync())!;
+        config.Id = newId;
+        return newId;
+    }
     // ────────────────────────────────────────────────────────────────────
     // 私有映射辅助
     // ────────────────────────────────────────────────────────────────────
@@ -279,6 +306,33 @@ public class MasterDbService : IMasterDbService
         cmd.Parameters.AddWithValue("@BaudRate",       s.BaudRate);
         cmd.Parameters.AddWithValue("@SlaveId",        s.SlaveId);
         cmd.Parameters.AddWithValue("@PollIntervalMs", s.PollIntervalMs);
+    }
+
+    public async Task UpdateRegisterConfigAsync(MasterRegisterConfig c)
+    {
+        await using var conn = new SqlConnection(_cs);
+        await conn.OpenAsync();
+        const string sql = """
+            UPDATE MasterRegisterConfigs
+            SET StartAddress=@StartAddress,
+                Quantity=@Quantity,
+                VariableName=@VariableName,
+                ChineseName=@ChineseName,
+                Unit=@Unit,
+                ScaleFactor=@ScaleFactor,
+                ValueRange=@ValueRange
+            WHERE Id=@Id
+            """;
+        await using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Id", c.Id);
+        cmd.Parameters.AddWithValue("@StartAddress", c.StartAddress);
+        cmd.Parameters.AddWithValue("@Quantity", c.Quantity);
+        cmd.Parameters.AddWithValue("@VariableName", c.VariableName);
+        cmd.Parameters.AddWithValue("@ChineseName", c.ChineseName);
+        cmd.Parameters.AddWithValue("@Unit", c.Unit);
+        cmd.Parameters.AddWithValue("@ScaleFactor", c.ScaleFactor);
+        cmd.Parameters.AddWithValue("@ValueRange", c.ValueRange);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     public async Task UpdateRegisterNamesAsync(int configId, string chineseName, string variableName)

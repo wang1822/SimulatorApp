@@ -21,8 +21,11 @@ public interface IMasterDbService
     Task<List<MasterRegisterConfig>> GetRegisterConfigsAsync(int stationId);
     /// <summary>先删除该站所有配置，再批量插入</summary>
     Task                             SaveRegisterConfigsAsync(int stationId, List<MasterRegisterConfig> configs);
+    /// <summary>新增单条寄存器配置，返回新配置 ID</summary>
+    Task<int>                        AddRegisterConfigAsync(int stationId, MasterRegisterConfig config);
 
     // ── 名称实时编辑 ──
+    Task UpdateRegisterConfigAsync(MasterRegisterConfig config);
     Task UpdateRegisterNamesAsync(int configId, string chineseName, string variableName);
     Task UpdateStationNameAsync(int stationId, string name);
 

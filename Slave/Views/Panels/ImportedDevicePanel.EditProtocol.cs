@@ -8,7 +8,7 @@ namespace SimulatorApp.Slave.Views.Panels;
 
 public partial class ImportedDevicePanel
 {
-    private void EditProtocol_Click(object sender, RoutedEventArgs e)
+    private async void EditProtocol_Click(object sender, RoutedEventArgs e)
     {
         if (!AuthService.Current.IsAdmin)
         {
@@ -26,7 +26,7 @@ public partial class ImportedDevicePanel
             return;
         }
 
-        slaveVm.BeginEditImportedProtocol(imported);
+        await slaveVm.BeginEditImportedProtocolAsync(imported);
     }
 
     private static TContext? FindAncestorDataContext<TContext>(DependencyObject? start)

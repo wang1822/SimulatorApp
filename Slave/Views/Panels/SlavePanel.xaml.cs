@@ -75,6 +75,7 @@ public partial class SlavePanel : UserControl
             return;
 
         var dlgVm = new NewProtocolDialogViewModel();
+        dlgVm.DeviceNameExistsAsync = name => vm.DeviceNameExistsAsync(name);
         dlgVm.RefreshComPorts();
 
         var dlg = new NewProtocolDialog(dlgVm)
@@ -86,7 +87,14 @@ public partial class SlavePanel : UserControl
         if (dlgVm.DialogResult != true || dlgVm.Rows.Count == 0)
             return;
 
-        await vm.AddDeviceFromDialogAsync(dlgVm);
+        try
+        {
+            await vm.AddDeviceFromDialogAsync(dlgVm);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this), ex.Message, "新建协议", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void DeleteImportedProtocol_Click(object sender, RoutedEventArgs e)
@@ -105,6 +113,36 @@ public partial class SlavePanel : UserControl
 
         if (vm.RemoveImportedDeviceCommand.CanExecute(selected))
             vm.RemoveImportedDeviceCommand.Execute(selected);
+    }
+
+    private async void SaveImportedProtocolSnapshot_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not SlaveViewModel vm)
+            return;
+
+        if (ImportedDevicesList.SelectedItem is not ImportedDeviceViewModel selected)
+        {
+            MessageBox.Show(Window.GetWindow(this), "请先在协议导入设备区域选择一个协议。", "保存快照", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new SnapshotNameDialog($"{selected.DeviceName}_快照")
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        try
+        {
+            await vm.SaveImportedDeviceSnapshotAsync(selected, dialog.SnapshotName);
+            MessageBox.Show(Window.GetWindow(this), "快照保存成功。", "保存快照", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this), ex.Message, "保存快照", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void ExportImportedProtocol_Click(object sender, RoutedEventArgs e)
@@ -293,7 +331,7 @@ public partial class SlavePanel : UserControl
     private void InspectorDevicesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => HandleDeviceSelectionChanged(sender as ListBox);
 
-    private void HandleDeviceSelectionChanged(ListBox? sourceList)
+    private async void HandleDeviceSelectionChanged(ListBox? sourceList)
     {
         if (sourceList == null)
             return;
@@ -306,6 +344,17 @@ public partial class SlavePanel : UserControl
 
         if (sourceList.SelectedItem is not DeviceViewModelBase selectedVm)
             return;
+
+        var previousVm = vm.SelectedDevice;
+
+        if (selectedVm is RegisterInspectorViewModel && vm.Listeners.Any(l => l.IsRunning))
+        {
+            if (!await vm.ConfirmAndPauseRunningListenersAsync())
+            {
+                RestoreDeviceSelection(previousVm);
+                return;
+            }
+        }
 
         SyncDeviceSelections(sourceList);
 
@@ -337,6 +386,28 @@ public partial class SlavePanel : UserControl
 
             if (!ReferenceEquals(sourceList, InspectorDevicesList))
                 InspectorDevicesList.SelectedItem = null;
+        }
+        finally
+        {
+            _isSyncingDeviceSelections = false;
+        }
+    }
+
+    private void RestoreDeviceSelection(DeviceViewModelBase? selectedVm)
+    {
+        try
+        {
+            _isSyncingDeviceSelections = true;
+
+            BuiltinDevicesList.SelectedItem = selectedVm != null && BuiltinDevicesList.Items.Contains(selectedVm)
+                ? selectedVm
+                : null;
+            ImportedDevicesList.SelectedItem = selectedVm != null && ImportedDevicesList.Items.Contains(selectedVm)
+                ? selectedVm
+                : null;
+            InspectorDevicesList.SelectedItem = selectedVm != null && InspectorDevicesList.Items.Contains(selectedVm)
+                ? selectedVm
+                : null;
         }
         finally
         {

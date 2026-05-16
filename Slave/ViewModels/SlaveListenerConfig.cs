@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using SimulatorApp.Shared.Models;
 using SimulatorApp.Slave.Services;
+using System.Collections.ObjectModel;
 
 namespace SimulatorApp.Slave.ViewModels;
 
@@ -18,6 +19,8 @@ public partial class SlaveListenerConfig : ObservableObject
     // ---- 配置（用户可编辑，停止状态下有效） ----
 
     [ObservableProperty] private bool _isEnabled = true;
+
+    [ObservableProperty] private string? _boundDeviceKey;
 
     [ObservableProperty] private ProtocolType _protocol = ProtocolType.Tcp;
 
@@ -38,6 +41,7 @@ public partial class SlaveListenerConfig : ObservableObject
     public bool IsRtuMode => Protocol == ProtocolType.Rtu;
 
     public IReadOnlyList<string> ProtocolNames { get; } = ["TCP", "RTU"];
+    public ObservableCollection<DeviceProtocolOption> AvailableDeviceProtocols { get; } = new();
 
     public int ProtocolIndex
     {
@@ -56,4 +60,16 @@ public partial class SlaveListenerConfig : ObservableObject
     public int DbId { get; set; } = 0;
 
     internal ISlaveService? Service { get; set; }
+}
+
+public sealed class DeviceProtocolOption
+{
+    public DeviceProtocolOption(string key, string displayName)
+    {
+        Key = key;
+        DisplayName = displayName;
+    }
+
+    public string Key { get; }
+    public string DisplayName { get; }
 }

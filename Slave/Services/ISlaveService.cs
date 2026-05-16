@@ -27,3 +27,13 @@ public interface ISlaveService : IDisposable
     /// <summary>停止从站监听</summary>
     Task StopAsync();
 }
+
+/// <summary>
+/// 支持按监听写入独立寄存器快照的从站服务。
+/// </summary>
+public interface IRegisterSnapshotSlaveService
+{
+    void ReplaceHoldingRegisters(IReadOnlyDictionary<int, ushort> values);
+
+    ushort[] ReadHoldingRegisters(int startAddress, int count);
+}

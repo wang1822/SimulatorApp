@@ -266,6 +266,12 @@
                         <Button Content="▼ 定位未通过" Command="{Binding NextUnverifiedCommand}"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 ToolTip="循环定位当前标签页中未通过验证（绿点）的行"/>
+                        <Separator Width="1" Background="{StaticResource BorderBrush}"
+                                   VerticalAlignment="Stretch" Margin="12,2,12,2"/>
+                        <Button Content="＋ 新增行" Command="{Binding AddRegisterRowCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
+                        <TextBlock Text="{Binding NewRowErrorText}" Foreground="#EF4444"
+                                   FontSize="11" VerticalAlignment="Center"/>
                     </WrapPanel>
                 </Border>
 
@@ -362,8 +368,8 @@
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="中文名"     Binding="{Binding ChineseName,  Mode=TwoWay}" Width="150"/>
                             <DataGridTextColumn Header="变量名"     Binding="{Binding VariableName, Mode=TwoWay}" Width="120"/>
-                            <DataGridTextColumn Header="地址"       Binding="{Binding StartAddress}" Width="55"         IsReadOnly="True"/>
-                            <DataGridTextColumn Header="数量"       Binding="{Binding Quantity}"     Width="40"         IsReadOnly="True"/>
+                            <DataGridTextColumn Header="地址"       Binding="{Binding StartAddress, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="55"/>
+                            <DataGridTextColumn Header="数量"       Binding="{Binding Quantity, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"     Width="40"/>
                             <DataGridTextColumn Header="原始寄存器" Binding="{Binding RawDisplay}"   Width="Auto" MinWidth="80" IsReadOnly="True"/>
                             <!-- 读取值：右键可切换 uint / int / 字符串 三种解析模式 -->
                             <DataGridTemplateColumn Header="读取值" Width="100" IsReadOnly="True">
@@ -398,9 +404,9 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="单位"       Binding="{Binding Unit}"         Width="55"         IsReadOnly="True"/>
-                            <DataGridTextColumn Header="取值范围"   Binding="{Binding ValueRange}"   Width="160"        IsReadOnly="True"/>
-                            <DataGridTextColumn Header="比例系数"   Binding="{Binding ScaleFactor}"  Width="70"         IsReadOnly="True"/>
+                            <DataGridTextColumn Header="单位"       Binding="{Binding Unit, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"         Width="55"/>
+                            <DataGridTextColumn Header="取值范围"   Binding="{Binding ValueRange, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"   Width="160"/>
+                            <DataGridTextColumn Header="比例系数"   Binding="{Binding ScaleFactor, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"  Width="70"/>
                             <DataGridTextColumn Header="更新时间"   Binding="{Binding LastUpdated}"  Width="*"          IsReadOnly="True"/>
                                                     <!-- 删除行按钮 -->
                             <DataGridTemplateColumn Width="30" Header="" IsReadOnly="True">
@@ -476,8 +482,8 @@
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="中文名"   Binding="{Binding ChineseName,  Mode=TwoWay}" Width="150"/>
                             <DataGridTextColumn Header="变量名"   Binding="{Binding VariableName, Mode=TwoWay}" Width="120"/>
-                            <DataGridTextColumn Header="地址"     Binding="{Binding StartAddress}" Width="55"        IsReadOnly="True"/>
-                            <DataGridTextColumn Header="数量"     Binding="{Binding Quantity}"     Width="40"        IsReadOnly="True"/>
+                            <DataGridTextColumn Header="地址"     Binding="{Binding StartAddress, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="55"/>
+                            <DataGridTextColumn Header="数量"     Binding="{Binding Quantity, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"     Width="40"/>
                             <DataGridTextColumn Header="原始寄存器" Binding="{Binding RawDisplay}" Width="Auto" MinWidth="80" IsReadOnly="True"/>
                             <!-- 当前值：常驻 TextBox，失焦后自动触发 FC16 写入 -->
                             <DataGridTemplateColumn Header="当前值（编辑后失焦写入）" Width="160" IsReadOnly="True">
@@ -494,11 +500,11 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="单位"     Binding="{Binding Unit}"         Width="55"        IsReadOnly="True"/>
-                            <DataGridTextColumn Header="取值范围" Binding="{Binding ValueRange}"   Width="150"       IsReadOnly="True"/>
-                            <DataGridTextColumn Header="比例系数" Binding="{Binding ScaleFactor}"  Width="70"        IsReadOnly="True"/>
+                            <DataGridTextColumn Header="单位"     Binding="{Binding Unit, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"         Width="55"/>
+                            <DataGridTextColumn Header="取值范围" Binding="{Binding ValueRange, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"   Width="150"/>
+                            <DataGridTextColumn Header="比例系数" Binding="{Binding ScaleFactor, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"  Width="70"/>
 
-                            <DataGridTextColumn Header="更新时间" Binding="{Binding LastUpdated}" Width="*"/>
+                            <DataGridTextColumn Header="更新时间" Binding="{Binding LastUpdated}" Width="*" IsReadOnly="True"/>
                                                     <!-- 删除行按钮 -->
                             <DataGridTemplateColumn Width="30" Header="" IsReadOnly="True">
                                 <DataGridTemplateColumn.CellTemplate>

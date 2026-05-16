@@ -11,6 +11,7 @@ using SimulatorApp.Shared.Models;
 using SimulatorApp.Shared.Services;
 using SimulatorApp.Shared.Views;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.IO.Ports;
 using System.Net.NetworkInformation;
@@ -30,7 +31,7 @@ public partial class MasterViewModel : ObservableObject
     // ── DB 连接 ───────────────────────────────────────────────────────────
     [ObservableProperty]
     private string _dbConnectionString =
-        "Server=10.184.4.153,1433;Database=ModBusT;User Id=sa;Password=000000;Encrypt=True;TrustServerCertificate=True;Connect Timeout=10;";
+        "Server=10.181.200.153,1433;Database=ModBusT;User Id=sa;Password=Ls-sa-2023;Encrypt=True;TrustServerCertificate=True;Connect Timeout=10;";
 
     [ObservableProperty] private bool   _isDbConnected = false;
     [ObservableProperty] private string _dbStatusText  = "未连接数据库";
@@ -125,6 +126,17 @@ public partial class MasterViewModel : ObservableObject
         _unverifiedMatchIndex = -1;
     }
 
+
+    // ── 主站表格新增行 ───────────────────────────────────────────────────
+    [ObservableProperty] private string _newRowAddressText   = string.Empty;
+    [ObservableProperty] private string _newRowChineseName   = string.Empty;
+    [ObservableProperty] private string _newRowVariableName  = string.Empty;
+    [ObservableProperty] private string _newRowQuantityText  = "1";
+    [ObservableProperty] private string _newRowUnit          = string.Empty;
+    [ObservableProperty] private string _newRowDataType      = "uint16";
+    [ObservableProperty] private string _newRowValueRange    = string.Empty;
+    [ObservableProperty] private string _newRowScaleText     = "1";
+    [ObservableProperty] private string _newRowErrorText     = string.Empty;
     // ── 搜索 / 定位未通过 ──────────────────────────────────────────────────
     [ObservableProperty] private string _searchText = string.Empty;
     private int _searchMatchIndex     = -1;
@@ -149,6 +161,8 @@ public partial class MasterViewModel : ObservableObject
     // ── 私有成员 ──────────────────────────────────────────────────────────
     private IMasterService?    _service;
     private IMasterDbService?  _dbService;
+    private readonly Dictionary<int, MasterRegisterConfig> _registerConfigSnapshots = new();
+    private bool _isRestoringRegisterRow;
     /*常见用法：
     你创建 cts = new CancellationTokenSource()
     把 cts.Token 传给异步任务/循环
@@ -515,6 +529,150 @@ public partial class MasterViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    public async Task AddRegisterRowAsync()
+    {
+        NewRowErrorText = string.Empty;
+
+
+        int address = TelemeterRows.Concat(ControlRows)
+            .Select(r => r.StartAddress)
+            .DefaultIfEmpty(-1)
+            .Max() + 1;
+        while (address <= 65535 && TelemeterRows.Concat(ControlRows).Any(r => r.StartAddress == address))
+            address++;
+        if (address > 65535)
+        {
+            NewRowErrorText = "没有可用的新地址";
+            AddLog(LogLevel.Warn, NewRowErrorText);
+            return;
+        }
+
+        NewRowAddressText  = address.ToString();
+        NewRowChineseName  = $"新增行{address}";
+        NewRowVariableName = $"NewRow{address}";
+        NewRowQuantityText = "1";
+        NewRowUnit = NewRowValueRange = string.Empty;
+        if (_dbService == null || SelectedStation == null || SelectedStation.Id <= 0)
+        {
+            NewRowErrorText = "请先连接数据库并选择已保存站点";
+            AddLog(LogLevel.Warn, NewRowErrorText);
+            return;
+        }
+
+        if (!int.TryParse(NewRowAddressText.Trim(), out var parsedAddress) || parsedAddress is < 0 or > 65535)
+        {
+            NewRowErrorText = "地址为必填，范围 0~65535";
+            AddLog(LogLevel.Warn, NewRowErrorText);
+            return;
+        }
+
+        string chineseName = NewRowChineseName.Trim();
+        if (string.IsNullOrWhiteSpace(chineseName))
+        {
+            NewRowErrorText = "中文名为必填";
+            AddLog(LogLevel.Warn, NewRowErrorText);
+            return;
+        }
+
+        if (TelemeterRows.Concat(ControlRows).Any(r => r.StartAddress == address))
+        {
+            NewRowErrorText = "工程师不能填重复的地址";
+            AddLog(LogLevel.Warn, $"新增行失败：{NewRowErrorText}（地址 {address}）");
+            ThemedMessageBox.Show(NewRowErrorText, "新增行",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        int quantity = 1;
+        if (!string.IsNullOrWhiteSpace(NewRowQuantityText) &&
+            (!int.TryParse(NewRowQuantityText.Trim(), out quantity) || quantity <= 0))
+        {
+            NewRowErrorText = "数量必须是大于 0 的整数";
+            AddLog(LogLevel.Warn, NewRowErrorText);
+            return;
+        }
+
+        double scale = 1.0;
+        if (!string.IsNullOrWhiteSpace(NewRowScaleText) && !TryParseDouble(NewRowScaleText, out scale))
+        {
+            NewRowErrorText = "比例系数必须是数字";
+            AddLog(LogLevel.Warn, NewRowErrorText);
+            return;
+        }
+
+        int category = ActiveTabIndex == 1 ? 1 : 0;
+        string dataType = string.IsNullOrWhiteSpace(NewRowDataType) ? "uint16" : NewRowDataType.Trim();
+        var cfg = new MasterRegisterConfig
+        {
+            StationId        = SelectedStation.Id,
+            StartAddress     = address,
+            Quantity         = quantity,
+            VariableName     = NewRowVariableName.Trim(),
+            ChineseName      = chineseName,
+            ReadWrite        = category == 1 ? "R/W" : "R",
+            Unit             = NewRowUnit.Trim(),
+            DataType         = dataType,
+            RegisterDataType = dataType,
+            ScaleFactor      = scale,
+            ValueRange       = NewRowValueRange.Trim(),
+            Category         = category
+        };
+
+        try
+        {
+            int newId = await _dbService.AddRegisterConfigAsync(SelectedStation.Id, cfg);
+            var row = new RegisterDisplayRow
+            {
+                RegisterConfigId = newId,
+                StartAddress     = cfg.StartAddress,
+                Quantity         = cfg.Quantity,
+                VariableName     = cfg.VariableName,
+                ChineseName      = cfg.ChineseName,
+                Unit             = cfg.Unit,
+                DataType         = cfg.DataType,
+                ReadWrite        = cfg.ReadWrite,
+                ScaleFactor      = cfg.ScaleFactor,
+                Offset           = cfg.Offset,
+                ValueRange       = cfg.ValueRange,
+                Description      = cfg.Description,
+                Category         = cfg.Category
+            };
+            row.PropertyChanged += OnRowPropertyChanged;
+            SaveRegisterRowSnapshot(row);
+
+            if (category == 0)
+            {
+                TelemeterRows.Add(row);
+                _pollGroups = BuildPollGroups(TelemeterRows.ToList());
+            }
+            else
+            {
+                ControlRows.Add(row);
+            }
+
+            NewRowAddressText  = string.Empty;
+            NewRowChineseName  = string.Empty;
+            NewRowVariableName = string.Empty;
+            NewRowQuantityText = "1";
+            NewRowUnit         = string.Empty;
+            NewRowValueRange   = string.Empty;
+            NewRowScaleText    = "1";
+
+            AddLog(LogLevel.Info, $"新增行已加入数据库：addr={address}，{chineseName}");
+        }
+        catch (Exception ex)
+        {
+            NewRowErrorText = $"新增行失败：{ex.Message}";
+            AddLog(LogLevel.Error, NewRowErrorText);
+            ThemedMessageBox.Show(NewRowErrorText, "新增行",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private static bool TryParseDouble(string text, out double value) =>
+        double.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.CurrentCulture, out value) ||
+        double.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
     private static ushort[] BuildWriteRegisters(RegisterDisplayRow row, double physVal)
     {
         double raw = (physVal - row.Offset) / row.ScaleFactor;
@@ -914,6 +1072,7 @@ public partial class MasterViewModel : ObservableObject
             r.PropertyChanged -= OnRowPropertyChanged;
 
         // 先用新空列表替换 _pollGroups（不 Clear），使后台 poll 快照的旧引用自然过期
+        _registerConfigSnapshots.Clear();
         _pollGroups = new List<PollGroup>();
         _searchMatchIndex     = -1;
         _unverifiedMatchIndex = -1;
@@ -964,6 +1123,7 @@ public partial class MasterViewModel : ObservableObject
             // 遥控行：从 DB 恢复上次写入值（不需要 FC03 轮询即可显示历史值）
             if (cfg.Category == 1)
                 row.InitFromSaved(cfg.LastRawRegisters, cfg.LastPhysicalValue);
+            SaveRegisterRowSnapshot(row);
 
             allRows.Add(row);
             row.PropertyChanged += OnRowPropertyChanged;
@@ -1128,8 +1288,31 @@ public partial class MasterViewModel : ObservableObject
 
         // 2. 过滤属性：只拦截用户编辑了“中文名”或“变量名”的事件。
         // （非常关键：防止轮询自动更新 PhysicalValue/LastUpdated 时也乱触发写库操作）
-        if (e.PropertyName != nameof(RegisterDisplayRow.ChineseName) &&
-            e.PropertyName != nameof(RegisterDisplayRow.VariableName)) return;
+        if (_isRestoringRegisterRow) return;
+        if (!IsEditableRegisterProperty(e.PropertyName)) return;
+
+        if (row.Quantity <= 0)
+        {
+            AddLog(LogLevel.Warn, "数量必须是大于 0 的整数");
+            RestoreRegisterRow(row);
+            return;
+        }
+
+        if (row.StartAddress is < 0 or > 65535)
+        {
+            AddLog(LogLevel.Warn, "地址范围必须是 0~65535");
+            RestoreRegisterRow(row);
+            return;
+        }
+
+        if (e.PropertyName == nameof(RegisterDisplayRow.StartAddress) &&
+            HasDuplicateAddressInSameTable(row))
+        {
+            AddLog(LogLevel.Warn, $"工程师不能填重复的地址：{row.StartAddress}");
+            ThemedMessageBox.Show("工程师不能填重复的地址", "修改地址", MessageBoxButton.OK, MessageBoxImage.Warning);
+            RestoreRegisterRow(row);
+            return;
+        }
 
         // 3. 拦截无效条件：
         // 如果未连接数据库（_dbService == null），或该行属于还没落库的临时记录（RegisterConfigId <= 0），则不执行保存
@@ -1138,14 +1321,80 @@ public partial class MasterViewModel : ObservableObject
         try
         {
             // 4. 异步保存：把修改后的最新名称静默写入到数据库中
-            await _dbService.UpdateRegisterNamesAsync(row.RegisterConfigId, row.ChineseName, row.VariableName);
+            await _dbService.UpdateRegisterConfigAsync(ToRegisterConfig(row));
+            SaveRegisterRowSnapshot(row);
+
+            if (row.Category == 0 &&
+                (e.PropertyName == nameof(RegisterDisplayRow.StartAddress) ||
+                 e.PropertyName == nameof(RegisterDisplayRow.Quantity) ||
+                 e.PropertyName == nameof(RegisterDisplayRow.ScaleFactor)))
+            {
+                row.RefreshComputedValues();
+                _pollGroups = BuildPollGroups(TelemeterRows.ToList());
+            }
         }
         catch (Exception ex)
         {
             // 5. 异常处理：保存失败时不弹窗打断用户的连续输入，只是回到 UI 线程在底部控制台输出警告日志
-            _dispatcher.InvokeAsync(() => AddLog(LogLevel.Warn, $"名称保存失败：{ex.Message}"));
+            RestoreRegisterRow(row);
+            _dispatcher.InvokeAsync(() => AddLog(LogLevel.Warn, $"配置保存失败：{ex.Message}"));
         }
     }
+
+
+    private bool HasDuplicateAddressInSameTable(RegisterDisplayRow row)
+    {
+        var rows = row.Category == 0 ? TelemeterRows : ControlRows;
+        return rows.Any(r =>
+            r.StartAddress == row.StartAddress &&
+            (row.RegisterConfigId > 0
+                ? r.RegisterConfigId != row.RegisterConfigId
+                : !ReferenceEquals(r, row)));
+    }
+    private static bool IsEditableRegisterProperty(string? propertyName) =>
+        propertyName == nameof(RegisterDisplayRow.StartAddress) ||
+        propertyName == nameof(RegisterDisplayRow.Quantity) ||
+        propertyName == nameof(RegisterDisplayRow.ChineseName) ||
+        propertyName == nameof(RegisterDisplayRow.VariableName) ||
+        propertyName == nameof(RegisterDisplayRow.Unit) ||
+        propertyName == nameof(RegisterDisplayRow.ValueRange) ||
+        propertyName == nameof(RegisterDisplayRow.ScaleFactor);
+
+    private void SaveRegisterRowSnapshot(RegisterDisplayRow row)
+        => _registerConfigSnapshots[row.RegisterConfigId] = ToRegisterConfig(row);
+
+    private void RestoreRegisterRow(RegisterDisplayRow row)
+    {
+        if (!_registerConfigSnapshots.TryGetValue(row.RegisterConfigId, out var cfg)) return;
+        _isRestoringRegisterRow = true;
+        row.StartAddress = cfg.StartAddress;
+        row.Quantity     = cfg.Quantity;
+        row.ChineseName  = cfg.ChineseName;
+        row.VariableName = cfg.VariableName;
+        row.Unit         = cfg.Unit;
+        row.ValueRange   = cfg.ValueRange;
+        row.ScaleFactor  = cfg.ScaleFactor;
+        _isRestoringRegisterRow = false;
+        if (row.Category == 0) _pollGroups = BuildPollGroups(TelemeterRows.ToList());
+    }
+
+    private static MasterRegisterConfig ToRegisterConfig(RegisterDisplayRow row) => new()
+    {
+        Id               = row.RegisterConfigId,
+        StartAddress     = row.StartAddress,
+        Quantity         = row.Quantity,
+        VariableName     = row.VariableName,
+        ChineseName      = row.ChineseName,
+        ReadWrite        = row.ReadWrite,
+        Unit             = row.Unit,
+        DataType         = row.DataType,
+        RegisterDataType = row.DataType,
+        ScaleFactor      = row.ScaleFactor,
+        Offset           = row.Offset,
+        ValueRange       = row.ValueRange,
+        Description      = row.Description,
+        Category         = row.Category
+    };
 
     /// <summary>弹出密码对话框，返回是否验证通过</summary>
     private static bool VerifyPassword()

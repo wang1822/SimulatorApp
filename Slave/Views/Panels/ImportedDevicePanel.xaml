@@ -96,7 +96,7 @@
                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
             <DockPanel>
                 <!-- 随机生成按钮 -->
-                <Button DockPanel.Dock="Right" Content="⚄ 随机生成"
+                <Button DockPanel.Dock="Right" Content="{Binding RandomGenerateButtonText}"
                         Height="24" Padding="10,0"
                         Background="#7C3AED" Foreground="White"
                         BorderThickness="0" Cursor="Hand" FontSize="12"

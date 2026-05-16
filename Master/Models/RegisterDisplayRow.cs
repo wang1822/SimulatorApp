@@ -12,21 +12,21 @@ public enum ValueDisplayMode { UInt, Int, String }
 /// </summary>
 public partial class RegisterDisplayRow : ObservableObject
 {
-    // ── 配置元数据（来自 DB，只读）──────────────────────────────────
+    // ── 配置元数据（来自 DB）───────────────────────────────────────
     public int    RegisterConfigId { get; init; }
-    public int    StartAddress     { get; init; }
-    public int    Quantity         { get; init; }
-    public string Unit             { get; init; } = string.Empty;
     public string DataType         { get; init; } = "uint16";
     public string ReadWrite        { get; init; } = "R";
-    public double ScaleFactor      { get; init; } = 1.0;
     public double Offset           { get; init; } = 0.0;
-    public string ValueRange       { get; init; } = string.Empty;
     public string Description      { get; init; } = string.Empty;
     public int    Category         { get; init; } = 0;
     // ── 可编辑字段（用户可内联修改，实时写 DB）────────────────────
+    [ObservableProperty] private int _startAddress = 0;
+    [ObservableProperty] private int _quantity = 1;
     [ObservableProperty] private string _chineseName  = string.Empty;
     [ObservableProperty] private string _variableName = string.Empty;
+    [ObservableProperty] private string _unit = string.Empty;
+    [ObservableProperty] private string _valueRange = string.Empty;
+    [ObservableProperty] private double _scaleFactor = 1.0;
 
     // ── 实时数据（轮询更新，UI 线程写）────────────────────────────
     [ObservableProperty] private string _rawDisplay    = "—";
@@ -70,6 +70,15 @@ public partial class RegisterDisplayRow : ObservableObject
     private ushort[] _lastRegs = Array.Empty<ushort>();
 
     // ─────────────────────────────────────────────────────────────────
+
+    partial void OnScaleFactorChanged(double value) => RefreshComputedValues();
+
+    public void RefreshComputedValues()
+    {
+        if (_lastRegs.Length == 0) return;
+        LastPhysicalRaw = ComputePhysicalWithScale(_lastRegs);
+        RefreshPhysicalValue();
+    }
 
     /// <summary>切换解析模式命令（ContextMenu 绑定，参数："uint" / "int" / "str"）</summary>
     [RelayCommand]
