@@ -60,7 +60,6 @@ public partial class SlaveViewModel : ObservableObject
     private bool _isRefreshingListenerProtocolOptions = false;
 
     private static void LogSys(string message) => AppLogger.Info($"[SYS] {message}");
-    private static void LogReq(string message) => AppLogger.Info($"[REQ] {message}");
 
     private const string DefaultDbCs =
         "Server=10.181.200.153,1433;Database=ModBusT;User Id=sa;Password=Ls-sa-2023;" +
@@ -1207,10 +1206,6 @@ public partial class SlaveViewModel : ObservableObject
         var nowUtc = DateTime.UtcNow;
         _lastRequestAt[listener] = nowUtc;
         MarkDeviceRequestActivity(listener, addr, qty, nowUtc);
-        var protocolText = listener.Protocol == ProtocolType.Tcp ? "TCP" : "RTU";
-        var fcText = $"FC{fc:D2}";
-        var valueDetails = BuildRequestValueDetails(listener, addr, qty);
-        LogReq($"{protocolText} {fcText}  addr={addr}  qty={qty}  src={sourceText}{valueDetails}");
         CaptureRequestFrames(listener, fc, addr, qty, sourceText);
     }
 
@@ -1286,26 +1281,6 @@ public partial class SlaveViewModel : ObservableObject
         catch
         {
             return [];
-        }
-    }
-
-    private string BuildRequestValueDetails(SlaveListenerConfig listener, int addr, int qty)
-    {
-        if (qty <= 0)
-            return string.Empty;
-
-        try
-        {
-            var values = listener.Service is IRegisterSnapshotSlaveService snapshotService
-                ? snapshotService.ReadHoldingRegisters(addr, qty)
-                : _bank.ReadRange(addr, qty);
-            var parts = values
-                .Select((value, index) => $"{addr + index}:{value}(0x{value:X4})");
-            return $"  values=[{string.Join(", ", parts)}]";
-        }
-        catch (Exception ex)
-        {
-            return $"  values=<read-failed:{ex.Message}>";
         }
     }
 

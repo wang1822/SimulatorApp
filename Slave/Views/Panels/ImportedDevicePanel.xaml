@@ -158,7 +158,7 @@
                   AutoGenerateColumns="False"
                   IsReadOnly="False"
                   CanUserAddRows="False"
-                  BeginningEdit="RegisterDataGrid_BeginningEdit_DoubleClickOnly"
+                  BeginningEdit="RegisterDataGrid_BeginningEdit_GuardCurrentValue"
                   PreparingCellForEdit="RegisterDataGrid_PreparingCellForEdit_CaretToEnd"
                   MouseDoubleClick="RegisterDataGrid_MouseDoubleClick"
                   SelectionUnit="CellOrRowHeader"
@@ -446,33 +446,55 @@
                 <DataGridTextColumn Header="英文名" Binding="{Binding EnglishName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="*" MinWidth="80"/>
 
                 <!-- 当前值：实时显示 RegisterBank 值，双击可写入，右键切换十进制/二进制 -->
-                <DataGridTemplateColumn Header="当前值" Width="130" MinWidth="100"
+                <DataGridTemplateColumn x:Name="CurrentValueColumn"
+                                        Header="当前值" Width="130" MinWidth="100"
                                         ClipboardContentBinding="{Binding CurrentValueDisplay}">
                     <!-- 正常显示：蓝色加粗，右键切换显示模式 -->
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding CurrentValueDisplay, Mode=OneWay}"
                                        FontWeight="Bold"
-                                       Foreground="#60A5FA"
                                        FontSize="15"
                                        FontFamily="Consolas"
                                        VerticalAlignment="Center"
-                                       ToolTip="双击编辑写入；右键切换显示模式">
+                                       ToolTip="{Binding CurrentValueToolTip}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#60A5FA"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CanWriteCurrentValue}" Value="False">
+                                                <Setter Property="Foreground" Value="#64748B"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
                                 <TextBlock.ContextMenu>
                                     <ContextMenu DataContext="{Binding PlacementTarget.DataContext,
                                                              RelativeSource={RelativeSource Self}}">
-                                        <MenuItem Header="十进制"
-                                                  IsChecked="{Binding IsDecimalMode, Mode=OneWay}"
-                                                  Command="{Binding SetDisplayModeCommand}"
-                                                  CommandParameter="dec"/>
+                                        <MenuItem Header="无符号十进制"
+                                                  IsChecked="{Binding IsUnsignedDecimalMode, Mode=OneWay}"
+                                                  Click="CurrentValue_DisplayModeMenuItem_Click"
+                                                  Tag="dec"/>
+                                        <MenuItem Header="有符号十进制"
+                                                  IsChecked="{Binding IsSignedDecimalMode, Mode=OneWay}"
+                                                  Click="CurrentValue_DisplayModeMenuItem_Click"
+                                                  Tag="sdec"/>
                                         <MenuItem Header="二进制"
                                                   IsChecked="{Binding IsBinaryMode, Mode=OneWay}"
-                                                  Command="{Binding SetDisplayModeCommand}"
-                                                  CommandParameter="bin"/>
+                                                  Click="CurrentValue_DisplayModeMenuItem_Click"
+                                                  Tag="bin"/>
                                         <MenuItem Header="十六进制"
                                                   IsChecked="{Binding IsHexMode, Mode=OneWay}"
-                                                  Command="{Binding SetDisplayModeCommand}"
-                                                  CommandParameter="hex"/>
+                                                  Click="CurrentValue_DisplayModeMenuItem_Click"
+                                                  Tag="hex"/>
+                                        <MenuItem Header="字符串"
+                                                  IsChecked="{Binding IsStringMode, Mode=OneWay}"
+                                                  Click="CurrentValue_DisplayModeMenuItem_Click"
+                                                  Tag="str"/>
+                                        <MenuItem Header="Float AB CD"
+                                                  IsChecked="{Binding IsFloatABCDMode, Mode=OneWay}"
+                                                  Click="CurrentValue_DisplayModeMenuItem_Click"
+                                                  Tag="float"/>
                                         <Separator/>
                                         <MenuItem Header="复制" Click="CurrentValue_CopyMenuItem_Click"/>
                                     </ContextMenu>
@@ -495,7 +517,8 @@
                                      FontSize="12"
                                      FontWeight="Bold"
                                      VerticalContentAlignment="Center"
-                                     ToolTip="输入新值后失焦写入寄存器（十进制、二进制或十六进制，与右键模式一致）"
+                                     IsEnabled="{Binding CanWriteCurrentValue}"
+                                     ToolTip="{Binding CurrentValueToolTip}"
                                      Loaded="WriteCell_Loaded"
                                      GotFocus="WriteCell_GotFocus"
                                      LostFocus="WriteCell_LostFocus"/>
