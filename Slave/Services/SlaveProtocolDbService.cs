@@ -11,6 +11,7 @@ public interface ISlaveProtocolDbService
     Task InitializeAsync();
     Task<int> SaveDeviceConfigAsync(SlaveDeviceConfig config, IEnumerable<ProtocolRow> rows);
     Task DeleteDeviceConfigAsync(int id);
+    Task<bool> DeviceNameExistsAsync(string name, int excludeId = 0);
     Task UpdateDeviceNameAsync(int id, string name);
     Task<List<(SlaveDeviceConfig Config, List<ProtocolRow> Rows, Dictionary<int, ushort> CurrentValues, Dictionary<int, bool> VerifiedValues)>> GetAllDeviceConfigsAsync();
     Task UpdateRowCurrentValueAsync(int configId, int address, ushort value);
@@ -39,15 +40,36 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
             "CREATE TABLE SlaveDeviceConfigs (\r\n" +
             "    Id             INT IDENTITY(1,1) PRIMARY KEY,\r\n" +
             "    Name           NVARCHAR(200) NOT NULL,\r\n" +
-            "    Protocol       TINYINT       NOT NULL DEFAULT 0,\r\n" +
-            "    Host           NVARCHAR(100) NOT NULL DEFAULT '0.0.0.0',\r\n" +
-            "    Port           INT           NOT NULL DEFAULT 502,\r\n" +
-            "    PortName       NVARCHAR(50)  NOT NULL DEFAULT 'COM3',\r\n" +
-            "    BaudRate       INT           NOT NULL DEFAULT 9600,\r\n" +
-            "    SlaveId        TINYINT       NOT NULL DEFAULT 1,\r\n" +
-            "    PollIntervalMs INT           NOT NULL DEFAULT 1000,\r\n" +
+            "    Protocol       TINYINT       NULL,\r\n" +
+            "    Host           NVARCHAR(100) NULL,\r\n" +
+            "    Port           INT           NULL,\r\n" +
+            "    PortName       NVARCHAR(50)  NULL,\r\n" +
+            "    BaudRate       INT           NULL,\r\n" +
+            "    SlaveId        TINYINT       NULL,\r\n" +
+            "    PollIntervalMs INT           NULL,\r\n" +
             "    CreatedAt      DATETIME2     NOT NULL DEFAULT GETDATE()\r\n" +
             ");\r\n\r\n" +
+            "DECLARE @sql NVARCHAR(MAX) = N'';\r\n" +
+            "SELECT @sql = @sql + N'ALTER TABLE SlaveDeviceConfigs DROP CONSTRAINT [' + dc.name + N'];'\r\n" +
+            "FROM sys.default_constraints dc\r\n" +
+            "JOIN sys.columns c ON c.default_object_id = dc.object_id\r\n" +
+            "WHERE dc.parent_object_id = OBJECT_ID('SlaveDeviceConfigs')\r\n" +
+            "  AND c.name IN ('Protocol','Host','Port','PortName','BaudRate','SlaveId','PollIntervalMs');\r\n" +
+            "IF LEN(@sql) > 0 EXEC sp_executesql @sql;\r\n" +
+            "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigs') AND name='Protocol' AND is_nullable=0)\r\n" +
+            "    ALTER TABLE SlaveDeviceConfigs ALTER COLUMN Protocol TINYINT NULL;\r\n" +
+            "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigs') AND name='Host' AND is_nullable=0)\r\n" +
+            "    ALTER TABLE SlaveDeviceConfigs ALTER COLUMN Host NVARCHAR(100) NULL;\r\n" +
+            "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigs') AND name='Port' AND is_nullable=0)\r\n" +
+            "    ALTER TABLE SlaveDeviceConfigs ALTER COLUMN Port INT NULL;\r\n" +
+            "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigs') AND name='PortName' AND is_nullable=0)\r\n" +
+            "    ALTER TABLE SlaveDeviceConfigs ALTER COLUMN PortName NVARCHAR(50) NULL;\r\n" +
+            "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigs') AND name='BaudRate' AND is_nullable=0)\r\n" +
+            "    ALTER TABLE SlaveDeviceConfigs ALTER COLUMN BaudRate INT NULL;\r\n" +
+            "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigs') AND name='SlaveId' AND is_nullable=0)\r\n" +
+            "    ALTER TABLE SlaveDeviceConfigs ALTER COLUMN SlaveId TINYINT NULL;\r\n" +
+            "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigs') AND name='PollIntervalMs' AND is_nullable=0)\r\n" +
+            "    ALTER TABLE SlaveDeviceConfigs ALTER COLUMN PollIntervalMs INT NULL;\r\n\r\n" +
             "IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE name='SlaveDeviceConfigRows' AND type='U')\r\n" +
             "CREATE TABLE SlaveDeviceConfigRows (\r\n" +
             "    Id             INT IDENTITY(1,1) PRIMARY KEY,\r\n" +
@@ -84,39 +106,21 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
             if (config.Id <= 0)
             {
                 const string ins =
-                    "INSERT INTO SlaveDeviceConfigs " +
-                    "    (Name, Protocol, Host, Port, PortName, BaudRate, SlaveId, PollIntervalMs) " +
+                    "INSERT INTO SlaveDeviceConfigs (Name) " +
                     "OUTPUT INSERTED.Id " +
-                    "VALUES (@name, @proto, @host, @port, @portName, @baud, @slaveId, @pollMs)";
+                    "VALUES (@name)";
                 await using var ins_cmd = new SqlCommand(ins, conn, tx);
                 ins_cmd.Parameters.AddWithValue("@name",    config.Name);
-                ins_cmd.Parameters.AddWithValue("@proto",   config.Protocol);
-                ins_cmd.Parameters.AddWithValue("@host",    config.Host);
-                ins_cmd.Parameters.AddWithValue("@port",    config.Port);
-                ins_cmd.Parameters.AddWithValue("@portName", config.PortName);
-                ins_cmd.Parameters.AddWithValue("@baud",    config.BaudRate);
-                ins_cmd.Parameters.AddWithValue("@slaveId", config.SlaveId);
-                ins_cmd.Parameters.AddWithValue("@pollMs",  config.PollIntervalMs);
                 id = (int)(await ins_cmd.ExecuteScalarAsync())!;
             }
             else
             {
                 id = config.Id;
                 const string upd =
-                    "UPDATE SlaveDeviceConfigs " +
-                    "SET Name=@name, Protocol=@proto, Host=@host, Port=@port, " +
-                    "    PortName=@portName, BaudRate=@baud, SlaveId=@slaveId, PollIntervalMs=@pollMs " +
-                    "WHERE Id=@id";
+                    "UPDATE SlaveDeviceConfigs SET Name=@name WHERE Id=@id";
                 await using var upd_cmd = new SqlCommand(upd, conn, tx);
                 upd_cmd.Parameters.AddWithValue("@id",      id);
                 upd_cmd.Parameters.AddWithValue("@name",    config.Name);
-                upd_cmd.Parameters.AddWithValue("@proto",   config.Protocol);
-                upd_cmd.Parameters.AddWithValue("@host",    config.Host);
-                upd_cmd.Parameters.AddWithValue("@port",    config.Port);
-                upd_cmd.Parameters.AddWithValue("@portName", config.PortName);
-                upd_cmd.Parameters.AddWithValue("@baud",    config.BaudRate);
-                upd_cmd.Parameters.AddWithValue("@slaveId", config.SlaveId);
-                upd_cmd.Parameters.AddWithValue("@pollMs",  config.PollIntervalMs);
                 await upd_cmd.ExecuteNonQueryAsync();
 
                 const string del = "DELETE FROM SlaveDeviceConfigRows WHERE DeviceConfigId=@id";
@@ -130,7 +134,7 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
                 "INSERT INTO SlaveDeviceConfigRows " +
                 "    (DeviceConfigId, SortOrder, Address, ChineseName, EnglishName, ReadWrite, Range, Unit, Note, CurrentValue, IsVerified) " +
                 "VALUES (@cfgId, @so, @addr, @cn, @en, @rw, @range, @unit, @note, 0, 0)";
-            foreach (var (cn, en, addr, rw, range, unit, note) in rows)
+            foreach (var (cn, en, addr, rw, range, unit, note) in rows.OrderBy(r => r.Address))
             {
                 await using var row_cmd = new SqlCommand(insRow, conn, tx);
                 row_cmd.Parameters.AddWithValue("@cfgId", id);
@@ -162,6 +166,23 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
         cmd.Parameters.AddWithValue("@id", id);
         await cmd.ExecuteNonQueryAsync();
         AppLogger.Info($"协议设备配置已从数据库删除：Id={id}");
+    }
+
+    public async Task<bool> DeviceNameExistsAsync(string name, int excludeId = 0)
+    {
+        var trimmed = (name ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return false;
+
+        await using var conn = new SqlConnection(_cs);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand(
+            "SELECT COUNT(1) FROM SlaveDeviceConfigs WHERE Name=@name AND (@excludeId <= 0 OR Id<>@excludeId)",
+            conn);
+        cmd.Parameters.AddWithValue("@name", trimmed);
+        cmd.Parameters.AddWithValue("@excludeId", excludeId);
+        var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        return count > 0;
     }
 
     public async Task UpdateDeviceNameAsync(int id, string name)
@@ -198,13 +219,13 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
                 {
                     Id             = rdr.GetInt32(0),
                     Name           = rdr.GetString(1),
-                    Protocol       = rdr.GetByte(2),
-                    Host           = rdr.GetString(3),
-                    Port           = rdr.GetInt32(4),
-                    PortName       = rdr.GetString(5),
-                    BaudRate       = rdr.GetInt32(6),
-                    SlaveId        = rdr.GetByte(7),
-                    PollIntervalMs = rdr.GetInt32(8),
+                    Protocol       = rdr.IsDBNull(2) ? 0 : rdr.GetByte(2),
+                    Host           = rdr.IsDBNull(3) ? string.Empty : rdr.GetString(3),
+                    Port           = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4),
+                    PortName       = rdr.IsDBNull(5) ? string.Empty : rdr.GetString(5),
+                    BaudRate       = rdr.IsDBNull(6) ? 0 : rdr.GetInt32(6),
+                    SlaveId        = rdr.IsDBNull(7) ? (byte)0 : rdr.GetByte(7),
+                    PollIntervalMs = rdr.IsDBNull(8) ? 0 : rdr.GetInt32(8),
                     CreatedAt      = rdr.GetDateTime(9),
                 });
             }
@@ -216,7 +237,7 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
         const string sqlRows =
             "SELECT DeviceConfigId, ChineseName, EnglishName, Address, ReadWrite, Range, Unit, Note, CurrentValue, IsVerified " +
             "FROM SlaveDeviceConfigRows " +
-            "ORDER BY DeviceConfigId, SortOrder";
+            "ORDER BY DeviceConfigId, Address, SortOrder";
         await using (var cmd = new SqlCommand(sqlRows, conn))
         await using (var rdr = await cmd.ExecuteReaderAsync())
         {

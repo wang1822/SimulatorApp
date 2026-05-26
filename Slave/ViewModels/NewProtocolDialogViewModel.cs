@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using SimulatorApp.Shared.Helpers;
@@ -30,6 +30,8 @@ public sealed class ProtocolPreviewRow
 /// </summary>
 public partial class NewProtocolDialogViewModel : ObservableObject
 {
+    public Func<string, Task<bool>>? DeviceNameExistsAsync { get; set; }
+
     // ── 基本配置 ──────────────────────────────────────────────────────
     [ObservableProperty] private string _deviceName = "协议导入";
     [ObservableProperty] private ProtocolType _protocol = ProtocolType.Tcp;
@@ -169,7 +171,7 @@ public partial class NewProtocolDialogViewModel : ObservableObject
     [ObservableProperty] private bool? _dialogResult;
 
     [RelayCommand]
-    public void Confirm()
+    public async Task ConfirmAsync()
     {
         if (Rows.Count == 0)
         {
@@ -178,6 +180,25 @@ public partial class NewProtocolDialogViewModel : ObservableObject
                 "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+
+        var name = DeviceName?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            ThemedMessageBox.Show(
+                "设备名称为必填。",
+                "新建协议", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (DeviceNameExistsAsync is not null && await DeviceNameExistsAsync(name))
+        {
+            ThemedMessageBox.Show(
+                "已有该设备名称。",
+                "新建协议", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        DeviceName = name;
         DialogResult = true;
     }
 

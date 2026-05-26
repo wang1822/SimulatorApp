@@ -13,7 +13,7 @@ namespace SimulatorApp.Slave.Services;
 /// 使用 ModbusTcpSlave.CreateTcp(slaveId, tcpListener) + Listen() 模式。
 /// DataStore 与 RegisterBank 保持同步。
 /// </summary>
-public class TcpSlaveService : ISlaveService
+public class TcpSlaveService : ISlaveService, IRegisterSnapshotSlaveService
 {
     private readonly RegisterBank        _bank;
     private TcpListener?                 _tcpListener;
@@ -21,6 +21,7 @@ public class TcpSlaveService : ISlaveService
     private CancellationTokenSource?     _cts;
     private Task?                        _listenTask;
     private DataStore?                   _dataStore;
+    private readonly HashSet<int>        _snapshotAddresses = new();
 
     public bool         IsRunning { get; private set; }
     public byte         SlaveId   { get; private set; }
@@ -28,6 +29,7 @@ public class TcpSlaveService : ISlaveService
 
     public string ListenAddress { get; set; } = "0.0.0.0";
     public int    Port          { get; set; } = 502;
+    public Func<int, bool>? RegisterAddressFilter { get; set; }
 
     public event Action<byte, int, int, string>? OnRequest;
 
@@ -107,8 +109,49 @@ public class TcpSlaveService : ISlaveService
 
     private void SyncOneRegister(int address, ushort value)
     {
-        if (_dataStore != null && (uint)address < 65536)
+        if (_dataStore != null
+            && (uint)address < 65536
+            && (RegisterAddressFilter?.Invoke(address) ?? true))
+        {
             _dataStore.HoldingRegisters[(ushort)(address + 1)] = value;
+        }
+    }
+
+    public void ReplaceHoldingRegisters(IReadOnlyDictionary<int, ushort> values)
+    {
+        if (_dataStore == null) return;
+
+        foreach (var address in _snapshotAddresses.Except(values.Keys).ToList())
+        {
+            if ((uint)address < 65536)
+                _dataStore.HoldingRegisters[(ushort)(address + 1)] = 0;
+        }
+
+        _snapshotAddresses.Clear();
+        foreach (var (address, value) in values)
+        {
+            if ((uint)address < 65536)
+            {
+                _dataStore.HoldingRegisters[(ushort)(address + 1)] = value;
+                _snapshotAddresses.Add(address);
+            }
+        }
+    }
+
+    public ushort[] ReadHoldingRegisters(int startAddress, int count)
+    {
+        if (_dataStore == null || count <= 0)
+            return [];
+
+        var result = new ushort[count];
+        for (var i = 0; i < count; i++)
+        {
+            var address = startAddress + i;
+            if ((uint)address < 65536)
+                result[i] = _dataStore.HoldingRegisters[(ushort)(address + 1)];
+        }
+
+        return result;
     }
 
     /// <summary>将 RegisterBank 当前值同步到 NModbus4 DataStore（HoldingRegisters 从索引 1 开始）</summary>
@@ -116,7 +159,10 @@ public class TcpSlaveService : ISlaveService
     {
         if (_dataStore == null) return;
         for (int i = 0; i < 65535; i++)
-            _dataStore.HoldingRegisters[(ushort)(i + 1)] = _bank.Read(i);
+        {
+            if (RegisterAddressFilter?.Invoke(i) ?? true)
+                _dataStore.HoldingRegisters[(ushort)(i + 1)] = _bank.Read(i);
+        }
     }
 
     private void OnDataStoreRead(DataStoreEventArgs e)
@@ -135,7 +181,7 @@ public class TcpSlaveService : ISlaveService
             for (int i = 0; i < regs.Count; i++)
             {
                 int addr = e.StartAddress + i; // e.StartAddress 是 PDU 地址（0-based），与 bank 地址相同
-                if ((uint)addr < 65536)
+                if ((uint)addr < 65536 && (RegisterAddressFilter?.Invoke(addr) ?? true))
                     _bank.Write(addr, regs[i]);
             }
         }

@@ -138,32 +138,10 @@ public partial class RegisterInspectorPanel
             return;
         }
 
-        var defaultListener = slaveVm.Listeners.FirstOrDefault(x => x.IsEnabled)
-                              ?? slaveVm.Listeners.FirstOrDefault();
-        if (defaultListener is null)
+        if (await slaveVm.DeviceNameExistsAsync(deviceName, _editingImportedDeviceId))
         {
-            InlineSaveErrorTextBlock.Text = "请先在上方创建默认监听配置。";
+            InlineSaveErrorTextBlock.Text = "已有该设备名称。";
             return;
-        }
-
-        var protocolIndex = Math.Max(0, defaultListener.ProtocolIndex);
-        var slaveId = defaultListener.SlaveId;
-        var listenAddress = defaultListener.ListenAddress?.Trim() ?? string.Empty;
-        var port = defaultListener.Port;
-
-        if (protocolIndex == 0)
-        {
-            if (string.IsNullOrWhiteSpace(listenAddress))
-            {
-                InlineSaveErrorTextBlock.Text = "默认监听配置的监听地址为空，请先在上方监听配置中填写。";
-                return;
-            }
-
-            if (port < 1 || port > 65535)
-            {
-                InlineSaveErrorTextBlock.Text = "默认监听配置的端口无效，请先在上方监听配置中填写。";
-                return;
-            }
         }
 
         if (ProtocolDraftRows.Count == 0)
@@ -205,13 +183,7 @@ public partial class RegisterInspectorPanel
 
         var dialogVm = new NewProtocolDialogViewModel
         {
-            DeviceName = deviceName,
-            ProtocolIndex = protocolIndex,
-            SlaveId = slaveId,
-            ListenAddress = listenAddress,
-            Port = port,
-            ComPort = defaultListener.ComPort,
-            BaudRate = defaultListener.BaudRate
+            DeviceName = deviceName
         };
 
         dialogVm.Rows.Clear();

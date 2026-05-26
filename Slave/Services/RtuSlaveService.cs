@@ -11,7 +11,7 @@ namespace SimulatorApp.Slave.Services;
 /// Modbus RTU 从站服务（NModbus4 2.1.0）。
 /// 通过串口监听 RTU 帧，DataStore 与 RegisterBank 保持同步。
 /// </summary>
-public class RtuSlaveService : ISlaveService
+public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
 {
     private readonly RegisterBank        _bank;
     private SerialPort?                  _serialPort;
@@ -19,6 +19,7 @@ public class RtuSlaveService : ISlaveService
     private CancellationTokenSource?     _cts;
     private Task?                        _listenTask;
     private DataStore?                   _dataStore;
+    private readonly HashSet<int>        _snapshotAddresses = new();
 
     public bool         IsRunning { get; private set; }
     public byte         SlaveId   { get; private set; }
@@ -26,6 +27,7 @@ public class RtuSlaveService : ISlaveService
 
     public string   PortName  { get; set; } = "COM3";
     public int      BaudRate  { get; set; } = 9600;
+    public Func<int, bool>? RegisterAddressFilter { get; set; }
     public int      DataBits  { get; set; } = 8;
     public StopBits StopBits  { get; set; } = StopBits.One;
     public Parity   Parity    { get; set; } = Parity.None;
@@ -107,15 +109,59 @@ public class RtuSlaveService : ISlaveService
 
     private void SyncOneRegister(int address, ushort value)
     {
-        if (_dataStore != null && (uint)address < 65536)
+        if (_dataStore != null
+            && (uint)address < 65536
+            && (RegisterAddressFilter?.Invoke(address) ?? true))
+        {
             _dataStore.HoldingRegisters[(ushort)(address + 1)] = value;
+        }
+    }
+
+    public void ReplaceHoldingRegisters(IReadOnlyDictionary<int, ushort> values)
+    {
+        if (_dataStore == null) return;
+
+        foreach (var address in _snapshotAddresses.Except(values.Keys).ToList())
+        {
+            if ((uint)address < 65536)
+                _dataStore.HoldingRegisters[(ushort)(address + 1)] = 0;
+        }
+
+        _snapshotAddresses.Clear();
+        foreach (var (address, value) in values)
+        {
+            if ((uint)address < 65536)
+            {
+                _dataStore.HoldingRegisters[(ushort)(address + 1)] = value;
+                _snapshotAddresses.Add(address);
+            }
+        }
+    }
+
+    public ushort[] ReadHoldingRegisters(int startAddress, int count)
+    {
+        if (_dataStore == null || count <= 0)
+            return [];
+
+        var result = new ushort[count];
+        for (var i = 0; i < count; i++)
+        {
+            var address = startAddress + i;
+            if ((uint)address < 65536)
+                result[i] = _dataStore.HoldingRegisters[(ushort)(address + 1)];
+        }
+
+        return result;
     }
 
     private void SyncBankToDataStore()
     {
         if (_dataStore == null) return;
         for (int i = 0; i < 65535; i++)
-            _dataStore.HoldingRegisters[(ushort)(i + 1)] = _bank.Read(i);
+        {
+            if (RegisterAddressFilter?.Invoke(i) ?? true)
+                _dataStore.HoldingRegisters[(ushort)(i + 1)] = _bank.Read(i);
+        }
     }
 
     private void OnDataStoreRead(DataStoreEventArgs e)
@@ -134,7 +180,7 @@ public class RtuSlaveService : ISlaveService
             for (int i = 0; i < regs.Count; i++)
             {
                 int addr = e.StartAddress + i; // e.StartAddress 是 PDU 地址（0-based），与 bank 地址相同
-                if ((uint)addr < 65536)
+                if ((uint)addr < 65536 && (RegisterAddressFilter?.Invoke(addr) ?? true))
                     _bank.Write(addr, regs[i]);
             }
         }

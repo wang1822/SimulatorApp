@@ -96,6 +96,11 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
     // ── 随机生成 ───────────────────────────────────────────────────
     [ObservableProperty] private int _minValue = 0;
     [ObservableProperty] private int _maxValue = 65535;
+    [ObservableProperty] private bool _isRandomGenerating;
+
+    public string RandomGenerateButtonText => IsRandomGenerating ? "⚄ 停止生成" : "⚄ 随机生成";
+
+    partial void OnIsRandomGeneratingChanged(bool value) => OnPropertyChanged(nameof(RandomGenerateButtonText));
 
     /// <summary>全选状态：true=全勾、false=全不勾、null=部分勾选</summary>
     public bool? IsAllChecked
@@ -121,6 +126,30 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
     [RelayCommand]
     public void GenerateRandom()
     {
+        if (IsRandomGenerating)
+        {
+            StopRandomGenerating();
+            return;
+        }
+
+        StartRandomGenerating();
+    }
+
+    private void StartRandomGenerating()
+    {
+        IsRandomGenerating = true;
+        GenerateRandomOnce();
+        _randomGenerateTimer.Start();
+    }
+
+    private void StopRandomGenerating()
+    {
+        _randomGenerateTimer.Stop();
+        IsRandomGenerating = false;
+    }
+
+    private void GenerateRandomOnce()
+    {
         int lo = Math.Clamp(Math.Min(MinValue, MaxValue), 0, 65535);
         int hi = Math.Clamp(Math.Max(MinValue, MaxValue), 0, 65535);
         foreach (var row in Rows)
@@ -129,10 +158,12 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
             try { row.WriteValue((ushort)Random.Shared.Next(lo, hi + 1)); }
             catch { }
         }
+        RegisterValueChanged?.Invoke();
     }
 
 
     private readonly DispatcherTimer _refreshTimer;
+    private readonly DispatcherTimer _randomGenerateTimer;
 
     public override bool IsImported => true;
     public int DbId { get; set; } = 0;
@@ -142,6 +173,9 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
 
     /// <summary>密码验证委托，由 SlaveViewModel 注入（返回 true 表示通过）</summary>
     public Func<bool>? PasswordVerifier { get; set; }
+
+    public Func<ImportedDeviceViewModel, int, ushort?>? GetActivePeerValueForAddress { get; set; }
+    public Action? RegisterValueChanged { get; set; }
 
     /// <summary>从协议文档格式（地址|中文名|英文名|读写|单位|描述）构建</summary>
     public ImportedDeviceViewModel(
@@ -155,7 +189,7 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
         SetDeviceName(string.IsNullOrWhiteSpace(deviceName) ? $"协议导入 #{n}" : deviceName.Trim());
         EditingDeviceName = DeviceName;
 
-        foreach (var (chinese, english, addr, rw, range, unit, note) in rows)
+        foreach (var (chinese, english, addr, rw, range, unit, note) in rows.OrderBy(r => r.Address))
             Rows.Add(MakeRow(chinese, english, addr, rw, range, unit, note));
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
@@ -164,10 +198,17 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
             if (IsSimulating)
             {
                 foreach (var row in Rows)
+                {
+                    if (TryGetActivePeerValue(row.Address, out _))
+                        continue;
+
                     row.RefreshFromBank();
+                }
             }
         };
         _refreshTimer.Start();
+        _randomGenerateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _randomGenerateTimer.Tick += (_, _) => GenerateRandomOnce();
         PropertyChanged += ImportedDeviceViewModel_PropertyChanged;
 
         FilteredRows = CollectionViewSource.GetDefaultView(Rows);
@@ -183,14 +224,10 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
         return new ImportedRegisterRow(chineseName, englishName, address, readWrite, range, unit, note, _bank,
             onCommit: (addr, val) =>
             {
-                // 未勾选时不参与发送：写入后立即清零该地址，保留行内值用于后续勾选再下发。
-                if (!IsSimulating)
-                {
-                    try { _bank.Write(addr, 0); } catch { }
-                }
-
                 if (DbService != null && DbId > 0)
                     _ = DbService.UpdateRowCurrentValueAsync(DbId, addr, val);
+
+                RegisterValueChanged?.Invoke();
             },
             onMetaCommit: (cn, en) =>
             {
@@ -280,9 +317,30 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
         foreach (var row in Rows)
         {
             if (row.IsPending) continue;
-            try { _bank.Write(row.Address, 0); }
-            catch { }
+            RestorePeerOrClearAddress(row.Address);
         }
+    }
+
+    private bool TryGetActivePeerValue(int address, out ushort value)
+    {
+        var peerValue = GetActivePeerValueForAddress?.Invoke(this, address);
+        if (peerValue.HasValue)
+        {
+            value = peerValue.Value;
+            return true;
+        }
+
+        value = 0;
+        return false;
+    }
+
+    private void RestorePeerOrClearAddress(int address)
+    {
+        try
+        {
+            _bank.Write(address, TryGetActivePeerValue(address, out var peerValue) ? peerValue : (ushort)0);
+        }
+        catch { }
     }
 
     public override void FlushToRegisters()
@@ -293,6 +351,16 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
             return;
         }
 
+        foreach (var row in Rows)
+        {
+            if (row.IsPending) continue;
+            try { _bank.Write(row.Address, row.CurrentValueRaw); }
+            catch { }
+        }
+    }
+
+    public void FlushCurrentValuesToRegisters()
+    {
         foreach (var row in Rows)
         {
             if (row.IsPending) continue;
@@ -314,6 +382,7 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
                 }
                 catch { }
         }
+        RegisterValueChanged?.Invoke();
     }
 
     public void RestoreVerifiedValues(System.Collections.Generic.Dictionary<int, bool> savedValues)
@@ -412,9 +481,10 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
         string readWrite, string range, string unit, string note)
     {
         var row = MakeRow(chineseName, englishName, address, readWrite, range, unit, note);
-        Rows.Add(row);
+        int insertIdx = GetSortedInsertIndex(address);
+        Rows.Insert(insertIdx, row);
         if (DbService != null && DbId > 0)
-            await DbService.InsertRowAsync(DbId, Rows.Count - 1,
+            await DbService.InsertRowAsync(DbId, insertIdx,
                 chineseName, englishName, address, readWrite, range, unit, note);
     }
 
@@ -461,15 +531,7 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
                                 pendingRow.ReadWrite, pendingRow.Range, pendingRow.Unit, pendingRow.Note);
 
         Rows.Remove(pendingRow);
-        int insertIdx = 0;
-        for (int i = Rows.Count - 1; i >= 0; i--)
-        {
-            if (!Rows[i].IsPending && Rows[i].Address <= address)
-            {
-                insertIdx = i + 1;
-                break;
-            }
-        }
+        int insertIdx = GetSortedInsertIndex(address);
         Rows.Insert(insertIdx, committed);
 
         if (DbService != null && DbId > 0)
@@ -479,6 +541,22 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
 
         OnPropertyChanged(nameof(IsAllChecked));
         return true;
+    }
+
+    private int GetSortedInsertIndex(int address)
+    {
+        int insertIdx = 0;
+        for (int i = Rows.Count - 1; i >= 0; i--)
+        {
+            if (Rows[i].IsPending) continue;
+            if (Rows[i].Address <= address)
+            {
+                insertIdx = i + 1;
+                break;
+            }
+        }
+
+        return insertIdx;
     }
 }
 

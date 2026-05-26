@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="SimulatorApp.Slave.Views.Panels.SlavePanel"
+<UserControl x:Class="SimulatorApp.Slave.Views.Panels.SlavePanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:panels="clr-namespace:SimulatorApp.Slave.Views.Panels"
@@ -65,13 +65,6 @@
                     </Style>
                 </Border.Style>
                 <DockPanel>
-                    <!-- 设备勾选框：勾选后启动监听生效、自动模拟运行、导出时包含此设备 -->
-                    <CheckBox DockPanel.Dock="Right"
-                              IsChecked="{Binding IsSimulating, Mode=TwoWay}"
-                              IsEnabled="{Binding DataContext.CanToggleDeviceSimulation,
-                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                              VerticalAlignment="Center" Margin="4,0,0,0"
-                              ToolTip="勾选后：启动监听时寄存器生效，定时模拟运行，导出时包含此设备"/>
                     <TextBlock Text="{Binding DeviceName}"
                                Foreground="{StaticResource TextPrimaryBrush}"
                                FontSize="13" VerticalAlignment="Center"
@@ -114,13 +107,6 @@
                     </Style>
                 </Border.Style>
                 <DockPanel>
-                    <!-- 与设备列表一致：仅勾选后参与发送/模拟 -->
-                    <CheckBox DockPanel.Dock="Right"
-                              IsChecked="{Binding IsSimulating, Mode=TwoWay}"
-                              IsEnabled="{Binding DataContext.CanToggleDeviceSimulation,
-                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                              VerticalAlignment="Center" Margin="4,0,0,0"
-                              ToolTip="勾选后：启动监听时寄存器生效，定时模拟运行，导出时包含此设备"/>
                     <Grid Margin="0,0,4,0" MouseLeftButtonDown="ImportedDeviceNameText_MouseLeftButtonDown">
                         <TextBlock Text="{Binding DeviceName}"
                                    Foreground="{StaticResource TextPrimaryBrush}"
@@ -202,11 +188,15 @@
                         <Button Content="▶ 启动全部" Height="26" Padding="8,0" Margin="0,0,6,0"
                                 Command="{Binding StartAllListenersCommand}"
                                 Style="{StaticResource PrimaryButtonStyle}"
-                                ToolTip="启动所有已勾选且未运行的监听"/>
-                        <Button Content="⏹ 停止全部" Height="26" Padding="8,0"
+                                ToolTip="启动所有已绑定设备协议且未运行的监听"/>
+                        <Button Content="⏹ 停止全部" Height="26" Padding="8,0" Margin="0,0,6,0"
                                 Command="{Binding StopAllListenersCommand}"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 ToolTip="停止所有正在运行的监听"/>
+                        <Button Content="报文抓取" Height="26" Padding="8,0"
+                                Command="{Binding OpenPacketCaptureCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                ToolTip="打开从站报文抓取窗口"/>
                     </WrapPanel>
                 </DockPanel>
 
@@ -264,9 +254,6 @@
                                         </StackPanel>
                                         <!-- 配置字段（靠左填充） -->
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}"
-                                                      VerticalAlignment="Center" Margin="0,0,5,0"
-                                                      ToolTip="勾选后才会被「启动全部」包含"/>
                                             <ComboBox MinWidth="68" Height="22"
                                                       ItemsSource="{Binding ProtocolNames}"
                                                       SelectedIndex="{Binding ProtocolIndex, Mode=TwoWay}"
@@ -293,10 +280,10 @@
                                             <StackPanel Orientation="Horizontal"
                                                         Visibility="{Binding IsRtuMode, Converter={StaticResource BoolToVis}}">
                                                 <ComboBox Width="76" Height="22"
+                                                          IsEditable="True"
                                                           ItemsSource="{Binding DataContext.AvailableComPorts,
                                                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                          SelectedItem="{Binding ComPort, Mode=TwoWay}"
-                                                          DropDownOpened="RtuComPortCombo_DropDownOpened"
+                                                          Text="{Binding ComPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                           Style="{StaticResource DataComboBoxStyle}"
                                                           Margin="0,0,4,0"/>
                                                 <ComboBox Width="76" Height="22"
@@ -312,7 +299,17 @@
                                                        FontSize="11" Margin="0,0,3,0"/>
                                             <TextBox Width="36" Height="22"
                                                      Text="{Binding SlaveId, UpdateSourceTrigger=PropertyChanged}"
-                                                     Style="{StaticResource DataTextBoxStyle}"/>
+                                                     Style="{StaticResource DataTextBoxStyle}"
+                                                     Margin="0,0,6,0"/>
+                                            <ComboBox Width="138" Height="22"
+                                                      ItemsSource="{Binding AvailableDeviceProtocols}"
+                                                      SelectedValuePath="Key" DisplayMemberPath="DisplayName"
+                                                      SelectedValue="{Binding BoundDeviceKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      Style="{StaticResource DataComboBoxStyle}"
+                                                      Visibility="{Binding DataContext.IsProtocolBindingVisible,
+                                                                   RelativeSource={RelativeSource AncestorType=UserControl},
+                                                                   Converter={StaticResource BoolToVis}}"
+                                                      ToolTip="选择该监听绑定的设备协议"/>
                                         </StackPanel>
                                     </DockPanel>
                                 </Border>
@@ -352,6 +349,20 @@
                             Margin="0,0,6,0"
                             ToolTip="导出当前选中的协议导入设备"
                             Click="ExportImportedProtocol_Click">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedItem, ElementName=ImportedDevicesList}" Value="{x:Null}">
+                                        <Setter Property="IsEnabled" Value="False"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Content="保存快照"
+                            Margin="0,0,6,0"
+                            ToolTip="将当前选中的协议导入设备另存为快照"
+                            Click="SaveImportedProtocolSnapshot_Click">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
                                 <Style.Triggers>

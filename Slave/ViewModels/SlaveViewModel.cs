@@ -9,6 +9,7 @@ using SimulatorApp.Shared.Services;
 using SimulatorApp.Shared.Views;
 using SimulatorApp.Slave.Models;
 using SimulatorApp.Slave.Services;
+using SimulatorApp.Slave.Views;
 using SimulatorApp.Slave.Views.Panels;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -45,16 +46,24 @@ public partial class SlaveViewModel : ObservableObject
     private readonly Dictionary<SlaveListenerConfig, DateTime> _rtuNoTrafficWarnAt = new();
     private readonly Dictionary<string, DateTime> _deviceNoResponseWarnAt = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _deviceLastRequestAt = new(StringComparer.OrdinalIgnoreCase);
+    private const string BuiltinDeviceKeyPrefix = "builtin:";
+    private const string ImportedDeviceKeyPrefix = "imported:";
     private readonly Dictionary<DeviceViewModelBase, PropertyChangedEventHandler> _deviceSimHandlers = new();
+    private readonly Dictionary<DeviceViewModelBase, PropertyChangedEventHandler> _deviceValueHandlers = new();
+    private readonly Dictionary<SlaveListenerConfig, PropertyChangedEventHandler> _listenerConfigHandlers = new();
     private readonly Dictionary<int, SlaveDeviceConfig> _importedDeviceConfigByDbId = new();
+    private readonly ModbusPacketCaptureViewModel _packetCaptureVm = new();
+    private ModbusPacketCaptureWindow? _packetCaptureWindow;
     private int _listenerProfileVersion = 0;
     private bool _suppressSimGuard = false;
+    private bool _suppressListenerBindingRefresh = false;
+    private bool _isRefreshingListenerProtocolOptions = false;
 
     private static void LogSys(string message) => AppLogger.Info($"[SYS] {message}");
     private static void LogReq(string message) => AppLogger.Info($"[REQ] {message}");
 
     private const string DefaultDbCs =
-        "Server=10.184.4.153,1433;Database=ModBusT;User Id=sa;Password=000000;" +
+        "Server=10.181.200.153,1433;Database=ModBusT;User Id=sa;Password=Ls-sa-2023;" +
         "Encrypt=True;TrustServerCertificate=True;Connect Timeout=10;";
 
     // ----------------------------------------------------------------
@@ -88,6 +97,8 @@ public partial class SlaveViewModel : ObservableObject
 
     [ObservableProperty] private DeviceViewModelBase? _selectedDevice;
     public bool CanToggleDeviceSimulation => SelectedDevice is not RegisterInspectorViewModel;
+    public bool IsInspectorDeviceSelected => SelectedDevice is RegisterInspectorViewModel;
+    public bool IsProtocolBindingVisible => !IsInspectorDeviceSelected;
 
     public UserControl? SelectedDevicePanel => SelectedDevice == null ? null
         : _panelCache.GetValueOrDefault(SelectedDevice);
@@ -98,15 +109,14 @@ public partial class SlaveViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedDevicePanel));
         OnPropertyChanged(nameof(HasSelectedDevice));
         OnPropertyChanged(nameof(CanToggleDeviceSimulation));
+        OnPropertyChanged(nameof(IsInspectorDeviceSelected));
+        OnPropertyChanged(nameof(IsProtocolBindingVisible));
+        RefreshListenerDeviceProtocolOptions();
 
         if (value is RegisterInspectorViewModel)
             ClearAllDeviceSimulationSelections();
 
-        var version = ++_listenerProfileVersion;
-        _ = Application.Current?.Dispatcher.InvokeAsync(async () =>
-        {
-            await ApplyListenerProfileForSelectedDeviceAsync(value, version);
-        });
+        // 切换设备协议只切换右侧编辑面板；监听配置保持用户当前设置。
     }
 
     // 以实例为键，支持同类型多设备
@@ -164,6 +174,7 @@ public partial class SlaveViewModel : ObservableObject
     {
         _services = services;
         _bank     = services.GetRequiredService<RegisterBank>();
+        _packetCaptureVm.HasRunningListener = () => IsRunning;
 
         PcsVm       = pcsVm;
         BmsVm       = bmsVm;
@@ -199,7 +210,9 @@ public partial class SlaveViewModel : ObservableObject
         SelectedDevice = null;
 
         // 默认添加一条 TCP 监听配置
-        Listeners.Add(new SlaveListenerConfig { IsEnabled = true });
+        var defaultListener = new SlaveListenerConfig { IsEnabled = true };
+        AddListenerConfig(defaultListener);
+        RefreshListenerDeviceProtocolOptions();
 
         RefreshTcpAddresses();
         RefreshComPorts();
@@ -223,6 +236,8 @@ public partial class SlaveViewModel : ObservableObject
         if (vm is not RegisterInspectorViewModel)
             BuiltinDevices.Add(vm);
         AttachDeviceSimulationObserver(vm);
+        AttachDeviceValueObserver(vm);
+        RefreshListenerDeviceProtocolOptions();
         _panelFactories[vm.GetType()] = panelFactory;
         try   { _panelCache[vm] = panelFactory(vm); }
         catch (Exception ex) { AppLogger.Error($"[RegisterDevice] 面板创建失败：{vm.DeviceName} — {ex.Message}", ex); }
@@ -269,6 +284,30 @@ public partial class SlaveViewModel : ObservableObject
         _deviceSimHandlers[vm] = handler;
     }
 
+    private void AttachDeviceValueObserver(DeviceViewModelBase vm)
+    {
+        if (_deviceValueHandlers.ContainsKey(vm))
+            return;
+
+        PropertyChangedEventHandler handler = (_, e) =>
+        {
+            if (string.Equals(e.PropertyName, nameof(DeviceViewModelBase.IsSimulating), StringComparison.Ordinal))
+                return;
+
+            if (!Listeners.Any(l => l.IsRunning && ReferenceEquals(ResolveBoundDevice(l), vm)))
+                return;
+
+            _ = Application.Current?.Dispatcher.InvokeAsync(() =>
+            {
+                FlushDeviceToRegistersForListening(vm);
+                PushRunningListenerSnapshotsForDevice(vm);
+            });
+        };
+
+        vm.PropertyChanged += handler;
+        _deviceValueHandlers[vm] = handler;
+    }
+
     private void DetachDeviceSimulationObserver(DeviceViewModelBase vm)
     {
         if (!_deviceSimHandlers.TryGetValue(vm, out var handler))
@@ -276,6 +315,15 @@ public partial class SlaveViewModel : ObservableObject
 
         vm.PropertyChanged -= handler;
         _deviceSimHandlers.Remove(vm);
+    }
+
+    private void DetachDeviceValueObserver(DeviceViewModelBase vm)
+    {
+        if (!_deviceValueHandlers.TryGetValue(vm, out var handler))
+            return;
+
+        vm.PropertyChanged -= handler;
+        _deviceValueHandlers.Remove(vm);
     }
 
     private void ClearAllDeviceSimulationSelections()
@@ -308,6 +356,63 @@ public partial class SlaveViewModel : ObservableObject
         }
     }
 
+    private void AddListenerConfig(SlaveListenerConfig listener, bool refreshProtocolOptions = true)
+    {
+        Listeners.Add(listener);
+        AttachListenerConfigObserver(listener);
+        if (refreshProtocolOptions)
+            RefreshListenerDeviceProtocolOptions();
+    }
+
+    private void InsertListenerConfig(int index, SlaveListenerConfig listener, bool refreshProtocolOptions = true)
+    {
+        Listeners.Insert(index, listener);
+        AttachListenerConfigObserver(listener);
+        if (refreshProtocolOptions)
+            RefreshListenerDeviceProtocolOptions();
+    }
+
+    private void RemoveListenerConfig(SlaveListenerConfig listener)
+    {
+        DetachListenerConfigObserver(listener);
+        Listeners.Remove(listener);
+    }
+
+    private void ClearListenerConfigs()
+    {
+        foreach (var listener in Listeners.ToList())
+            DetachListenerConfigObserver(listener);
+        Listeners.Clear();
+    }
+
+    private void AttachListenerConfigObserver(SlaveListenerConfig listener)
+    {
+        if (_listenerConfigHandlers.ContainsKey(listener))
+            return;
+
+        PropertyChangedEventHandler handler = (sender, e) =>
+        {
+            if (_suppressListenerBindingRefresh || _isRefreshingListenerProtocolOptions)
+                return;
+
+            if (!string.Equals(e.PropertyName, nameof(SlaveListenerConfig.BoundDeviceKey), StringComparison.Ordinal))
+                return;
+
+            RefreshOtherListenerDeviceProtocolOptions(listener);
+        };
+
+        listener.PropertyChanged += handler;
+        _listenerConfigHandlers[listener] = handler;
+    }
+
+    private void DetachListenerConfigObserver(SlaveListenerConfig listener)
+    {
+        if (!_listenerConfigHandlers.TryGetValue(listener, out var handler))
+            return;
+
+        listener.PropertyChanged -= handler;
+        _listenerConfigHandlers.Remove(listener);
+    }
     // ----------------------------------------------------------------
     // 命令：监听配置管理
     // ----------------------------------------------------------------
@@ -328,7 +433,8 @@ public partial class SlaveViewModel : ObservableObject
             return;
         }
 
-        Listeners.Add(new SlaveListenerConfig { Port = port, IsEnabled = true });
+        var listener = new SlaveListenerConfig { Port = port, IsEnabled = true };
+        AddListenerConfig(listener);
         LogSys($"listener-added count={Listeners.Count} port={port}");
         OnPropertyChanged(nameof(Listeners));
     }
@@ -337,7 +443,8 @@ public partial class SlaveViewModel : ObservableObject
     public void RemoveListener(SlaveListenerConfig config)
     {
         if (config.IsRunning) return;   // 运行中不可删除，按钮已在界面禁用
-        Listeners.Remove(config);
+        RemoveListenerConfig(config);
+        RefreshListenerDeviceProtocolOptions();
     }
 
     // ----------------------------------------------------------------
@@ -354,14 +461,13 @@ public partial class SlaveViewModel : ObservableObject
             if (!config.IsEnabled)
                 config.IsEnabled = true;
 
+            EnsureListenerHasDefaultProtocolBinding(config);
             if (!ShouldListenerBeActive(config))
             {
                 var activeForListener = GetActiveDevicesForListener(config);
-                var importedChecked = ImportedDevices.Count(v => v.IsSimulating);
-                var builtinChecked = BuiltinDevices.Count(v => v.IsSimulating);
                 LogSys(
                     $"start-blocked listenerDbId={config.DbId} enabled={config.IsEnabled} " +
-                    $"activeForListener={activeForListener.Count} importedChecked={importedChecked} builtinChecked={builtinChecked}");
+                    $"bound={config.BoundDeviceKey ?? "(none)"} activeForListener={activeForListener.Count}");
                 config.StatusText = GetListenerNotReadyReason(config);
                 return;
             }
@@ -379,7 +485,10 @@ public partial class SlaveViewModel : ObservableObject
         var snapshot = Listeners.ToList();
         foreach (var cfg in snapshot)
         {
-            bool shouldRun = cfg.IsEnabled && ShouldListenerBeActive(cfg);
+            if (!cfg.IsEnabled)
+                cfg.IsEnabled = true;
+            EnsureListenerHasDefaultProtocolBinding(cfg);
+            bool shouldRun = ShouldListenerBeActive(cfg);
             if (shouldRun && !cfg.IsRunning)
                 await StartListenerCoreAsync(cfg);
             else if (!shouldRun && cfg.IsRunning)
@@ -389,6 +498,30 @@ public partial class SlaveViewModel : ObservableObject
 
     [RelayCommand]
     public async Task StopAllListenersAsync()
+    {
+        await StopAllRunningListenersAsync();
+    }
+
+    public async Task<bool> ConfirmAndPauseRunningListenersAsync()
+    {
+        if (!Listeners.Any(l => l.IsRunning))
+            return true;
+
+        var result = MessageBox.Show(
+            Application.Current?.MainWindow,
+            "当前设备运行中，操作会导致当前监听暂停。是否继续？",
+            "监听运行中",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.Yes)
+            return false;
+
+        await StopAllRunningListenersAsync();
+        return true;
+    }
+
+    private async Task StopAllRunningListenersAsync()
     {
         foreach (var cfg in Listeners.Where(c => c.IsRunning).ToList())
             await StopListenerCoreAsync(cfg);
@@ -415,6 +548,7 @@ public partial class SlaveViewModel : ObservableObject
                 var tcpSvc = _services.GetRequiredService<TcpSlaveService>();
                 tcpSvc.ListenAddress = config.ListenAddress;
                 tcpSvc.Port          = config.Port;
+                tcpSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
                 svc = tcpSvc;
             }
             else
@@ -422,6 +556,7 @@ public partial class SlaveViewModel : ObservableObject
                 var rtuSvc = _services.GetRequiredService<RtuSlaveService>();
                 rtuSvc.PortName  = config.ComPort;
                 rtuSvc.BaudRate  = config.BaudRate;
+                rtuSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
                 svc = rtuSvc;
             }
 
@@ -431,19 +566,15 @@ public partial class SlaveViewModel : ObservableObject
 
             bool inspectorOnlyMode = IsInspectorSession(config);
 
-            // 启动前清零寄存器，只刷勾选设备。
-            // 寄存器检视模式下不刷设备协议，避免未勾选协议被带入。
-            _bank.ClearAll();
+            // 启动前刷新绑定设备的当前值，服务启动后再灌入该监听自己的 DataStore。
             if (!inspectorOnlyMode)
             {
-                foreach (var vm in DeviceList.Where(v => v.IsSimulating))
-                    vm.FlushToRegisters();
-                // 导入协议设备与内置设备一致：仅勾选项参与寄存器发送
-                foreach (var vm in ImportedDevices.Where(v => v.IsSimulating))
-                    vm.FlushToRegisters();
+                foreach (var vm in GetActiveDevicesForListener(config))
+                    FlushDeviceToRegistersForListening(vm);
             }
 
             await svc.StartAsync(config.SlaveId);
+            PushListenerSnapshot(config);
             config.Service    = svc;
             config.IsRunning  = true;
             config.StatusText = config.Protocol == ProtocolType.Tcp
@@ -472,8 +603,9 @@ public partial class SlaveViewModel : ObservableObject
                 _simTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
                 _simTimer.Tick += (_, _) =>
                 {
-                    foreach (var vm in DeviceList)
-                        if (vm.IsSimulating) vm.GenerateData();
+                    foreach (var vm in GetActiveDevicesForRunningListeners())
+                        vm.GenerateData();
+                    PushRunningListenerSnapshots();
                 };
                 _simTimer.Start();
             }
@@ -601,6 +733,8 @@ public partial class SlaveViewModel : ObservableObject
     {
         try
         {
+            if (!await ConfirmAndPauseRunningListenersAsync())
+                return;
             SlaveDbStatusText = "连接中…";
             var svc = new SlaveProtocolDbService(DefaultDbCs);
             await svc.InitializeAsync();
@@ -627,6 +761,7 @@ public partial class SlaveViewModel : ObservableObject
             foreach (var vm in ImportedDevices.ToList())
             {
                 DetachDeviceSimulationObserver(vm);
+                DetachDeviceValueObserver(vm);
                 _panelCache.Remove(vm);
                 DeviceList.Remove(vm);
             }
@@ -635,7 +770,7 @@ public partial class SlaveViewModel : ObservableObject
             foreach (var l in dbListeners)
             {
                 if (l.IsRunning) await StopListenerCoreAsync(l);
-                Listeners.Remove(l);
+                RemoveListenerConfig(l);
             }
             ImportedDevices.Clear();
             _importedDeviceConfigByDbId.Clear();
@@ -670,20 +805,24 @@ public partial class SlaveViewModel : ObservableObject
         Dictionary<int, bool>?   verifiedValues = null,
         bool                     selectAfterAdd = true)
     {
-        var rowList = rows.ToList();
+        var rowList = rows.OrderBy(r => r.Address).ToList();
         var bank    = _services.GetRequiredService<RegisterBank>();
         var mapSvc  = _services.GetRequiredService<RegisterMapService>();
         var vm      = new ImportedDeviceViewModel(bank, mapSvc, config.Name, rowList) { DbId = config.Id };
         vm.IsSimulating = false;
         vm.DbService = _slaveDbService;
         vm.PasswordVerifier = VerifyPassword;
+        vm.GetActivePeerValueForAddress = GetActiveImportedPeerValueForAddress;
+        vm.RegisterValueChanged = () => PushRunningListenerSnapshotsForDevice(vm);
         AttachDeviceSimulationObserver(vm);
+        AttachDeviceValueObserver(vm);
         if (currentValues != null) vm.RestoreCurrentValues(currentValues);
         if (verifiedValues != null) vm.RestoreVerifiedValues(verifiedValues);
         _panelCache[vm] = new ImportedDevicePanel { DataContext = vm };
         DeviceList.Add(vm);
         ImportedDevices.Add(vm);
         OnPropertyChanged(nameof(HasImportedDevices));
+        RefreshListenerDeviceProtocolOptions();
 
         SlaveListenerConfig? listener = null;
         if (addListener)
@@ -698,8 +837,10 @@ public partial class SlaveViewModel : ObservableObject
                 SlaveId       = config.SlaveId,
                 DbId          = config.Id,
                 IsEnabled     = true,
+                BoundDeviceKey = config.Id > 0 ? BuildImportedDeviceKey(config.Id) : null,
             };
-            Listeners.Add(listener);
+            AddListenerConfig(listener);
+            RefreshDeviceProtocolOptions(listener);
         }
 
         if (saveToDb && _slaveDbService != null)
@@ -790,25 +931,76 @@ public partial class SlaveViewModel : ObservableObject
     // ----------------------------------------------------------------
 
     /// <summary>
-    /// 根据「新建协议」对话框的配置，添加监听端点并创建协议导入设备。
+    /// 根据「新建协议」对话框的寄存器内容创建协议导入设备。
     /// 方法为 async Task，调用方应 await 以确保 DbId 在返回前已赋值。
     /// </summary>
     public async Task AddDeviceFromDialogAsync(NewProtocolDialogViewModel dlgVm)
     {
-        var config = new SlaveDeviceConfig
-        {
-            Name     = dlgVm.DeviceName,
-            Protocol = (int)dlgVm.Protocol,
-            Host     = dlgVm.ListenAddress,
-            Port     = dlgVm.Port,
-            PortName = dlgVm.ComPort,
-            BaudRate = dlgVm.BaudRate,
-            SlaveId  = dlgVm.SlaveId,
-        };
-        await AddProtocolDeviceAsync(config, dlgVm.GetProtocolRows(), addListener: true);
+        if (await DeviceNameExistsAsync(dlgVm.DeviceName))
+            throw new InvalidOperationException("已有该设备名称。");
+
+        var config = new SlaveDeviceConfig { Name = dlgVm.DeviceName };
+        await AddProtocolDeviceAsync(config, dlgVm.GetProtocolRows(), addListener: false);
     }
 
-    public void BeginEditImportedProtocol(ImportedDeviceViewModel imported)
+    public async Task<bool> DeviceNameExistsAsync(string deviceName, int excludeId = 0)
+    {
+        var name = (deviceName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+
+        return _slaveDbService is not null && await _slaveDbService.DeviceNameExistsAsync(name, excludeId);
+    }
+
+    public async Task SaveImportedDeviceSnapshotAsync(ImportedDeviceViewModel source, string snapshotName)
+    {
+        var name = (snapshotName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            throw new InvalidOperationException("快照名称不能为空。");
+
+        if (_slaveDbService is null || !IsSlaveDbConnected)
+            throw new InvalidOperationException("数据库未连接，无法保存快照。");
+
+        if (source.Rows.All(r => r.IsPending))
+            throw new InvalidOperationException("当前协议没有可保存的寄存器行。");
+
+        if (await _slaveDbService.DeviceNameExistsAsync(name))
+            throw new InvalidOperationException("快照名称已存在，请重新填写。");
+
+        var rows = source.Rows
+            .Where(r => !r.IsPending)
+            .OrderBy(r => r.Address)
+            .Select(r => (r.ChineseName, r.EnglishName, r.Address, r.ReadWrite, r.Range, r.Unit, r.Note))
+            .ToList();
+        var currentValues = new Dictionary<int, ushort>();
+        var verifiedValues = new Dictionary<int, bool>();
+        foreach (var row in source.Rows.Where(r => !r.IsPending))
+        {
+            currentValues[row.Address] = row.CurrentValueRaw;
+            verifiedValues[row.Address] = row.IsVerified;
+        }
+
+        var config = new SlaveDeviceConfig { Name = name };
+        var savedId = await _slaveDbService.SaveDeviceConfigAsync(config, rows);
+
+        foreach (var kv in currentValues)
+            await _slaveDbService.UpdateRowCurrentValueAsync(savedId, kv.Key, kv.Value);
+        foreach (var kv in verifiedValues.Where(kv => kv.Value))
+            await _slaveDbService.UpdateRowIsVerifiedAsync(savedId, kv.Key, true);
+
+        config.Id = savedId;
+        await AddProtocolDeviceAsync(
+            config,
+            rows,
+            addListener: false,
+            saveToDb: false,
+            currentValues: currentValues,
+            verifiedValues: verifiedValues);
+
+        LogSys($"protocol-snapshot-saved sourceId={source.DbId} newId={savedId} name={name} rows={rows.Count}");
+    }
+
+    public async Task BeginEditImportedProtocolAsync(ImportedDeviceViewModel imported)
     {
         if (imported.DbId <= 0)
         {
@@ -822,6 +1014,9 @@ public partial class SlaveViewModel : ObservableObject
             MessageBox.Show("未找到寄存器检视区域，无法编辑协议。", "编辑协议", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+
+        if (!await ConfirmAndPauseRunningListenersAsync())
+            return;
 
         if (inspectorVm.Rows.Count > 0)
         {
@@ -849,16 +1044,10 @@ public partial class SlaveViewModel : ObservableObject
 
         var existingConfig = _importedDeviceConfigByDbId.TryGetValue(dbId, out var savedConfig)
             ? savedConfig
-            : new SlaveDeviceConfig
-            {
-                Id = dbId,
-                Protocol = (int)dlgVm.Protocol,
-                Host = dlgVm.ListenAddress,
-                Port = dlgVm.Port,
-                PortName = dlgVm.ComPort,
-                BaudRate = dlgVm.BaudRate,
-                SlaveId = dlgVm.SlaveId
-            };
+            : new SlaveDeviceConfig { Id = dbId };
+
+        if (await DeviceNameExistsAsync(dlgVm.DeviceName, dbId))
+            throw new InvalidOperationException("已有该设备名称。");
 
         var config = CloneDeviceConfig(existingConfig, dbId);
         config.Name = dlgVm.DeviceName;
@@ -881,6 +1070,7 @@ public partial class SlaveViewModel : ObservableObject
             if (oldVm.IsSimulating)
                 oldVm.IsSimulating = false;
             DetachDeviceSimulationObserver(oldVm);
+            DetachDeviceValueObserver(oldVm);
             _panelCache.Remove(oldVm);
             DeviceList.Remove(oldVm);
             ImportedDevices.Remove(oldVm);
@@ -903,22 +1093,12 @@ public partial class SlaveViewModel : ObservableObject
             DeviceList.Move(DeviceList.Count - 1, deviceIndex);
 
         _importedDeviceConfigByDbId[dbId] = CloneDeviceConfig(config, dbId);
-        var listener = Listeners.FirstOrDefault(l => l.DbId == dbId);
-        if (listener is not null)
-        {
-            listener.Protocol = (ProtocolType)config.Protocol;
-            listener.ListenAddress = config.Host;
-            listener.Port = config.Port;
-            listener.ComPort = config.PortName;
-            listener.BaudRate = config.BaudRate;
-            listener.SlaveId = config.SlaveId;
-        }
-
         newVm.IsSimulating = wasSimulating;
         if (wasSelected)
             SelectedDevice = newVm;
 
         OnPropertyChanged(nameof(HasImportedDevices));
+        RefreshListenerDeviceProtocolOptions();
         LogSys($"protocol-replaced id={dbId} name={config.Name} rows={rows.Count}");
     }
 
@@ -937,12 +1117,16 @@ public partial class SlaveViewModel : ObservableObject
     public async Task RemoveImportedDeviceAsync(ImportedDeviceViewModel vm)
     {
         if (!VerifyPassword()) return;
+        if (!await ConfirmAndPauseRunningListenersAsync())
+            return;
 
         DetachDeviceSimulationObserver(vm);
+        DetachDeviceValueObserver(vm);
         _panelCache.Remove(vm);
         DeviceList.Remove(vm);
         ImportedDevices.Remove(vm);
         OnPropertyChanged(nameof(HasImportedDevices));
+        RefreshListenerDeviceProtocolOptions();
         if (SelectedDevice == vm)
             SelectedDevice = ImportedDevices.FirstOrDefault() ?? DeviceList.FirstOrDefault();
 
@@ -954,7 +1138,7 @@ public partial class SlaveViewModel : ObservableObject
             if (dbListener != null)
             {
                 if (dbListener.IsRunning) await StopListenerCoreAsync(dbListener);
-                Listeners.Remove(dbListener);
+                RemoveListenerConfig(dbListener);
             }
         }
 
@@ -971,6 +1155,31 @@ public partial class SlaveViewModel : ObservableObject
 
     [RelayCommand]
     public void ClearLog() => LogEntries.Clear();
+
+    [RelayCommand]
+    public void OpenPacketCapture()
+    {
+        if (!IsRunning)
+        {
+            ThemedMessageBox.Show("请先开启监听后再抓取报文。", "报文抓取",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (_packetCaptureWindow == null)
+        {
+            _packetCaptureWindow = new ModbusPacketCaptureWindow
+            {
+                Owner = Application.Current?.MainWindow,
+                DataContext = _packetCaptureVm
+            };
+            _packetCaptureWindow.Closed += (_, _) => _packetCaptureWindow = null;
+        }
+
+        _packetCaptureWindow.Show();
+        _packetCaptureWindow.Activate();
+        _packetCaptureVm.TryStart();
+    }
 
     // ----------------------------------------------------------------
     // 请求计数回调
@@ -993,24 +1202,103 @@ public partial class SlaveViewModel : ObservableObject
         if (!RequestMatchesActiveDevice(listener, addr, qty))
             return;
 
+        PushListenerSnapshot(listener);
         RequestCount++;
         var nowUtc = DateTime.UtcNow;
         _lastRequestAt[listener] = nowUtc;
         MarkDeviceRequestActivity(listener, addr, qty, nowUtc);
         var protocolText = listener.Protocol == ProtocolType.Tcp ? "TCP" : "RTU";
         var fcText = $"FC{fc:D2}";
-        var valueDetails = BuildRequestValueDetails(addr, qty);
+        var valueDetails = BuildRequestValueDetails(listener, addr, qty);
         LogReq($"{protocolText} {fcText}  addr={addr}  qty={qty}  src={sourceText}{valueDetails}");
+        CaptureRequestFrames(listener, fc, addr, qty, sourceText);
     }
 
-    private string BuildRequestValueDetails(int addr, int qty)
+    private void CaptureRequestFrames(SlaveListenerConfig listener, byte fc, int addr, int qty, string source)
+    {
+        if (!_packetCaptureVm.IsCapturing || _packetCaptureVm.IsPaused)
+            return;
+
+        var now = DateTime.Now;
+        var protocolText = listener.Protocol == ProtocolType.Tcp ? "TCP" : "RTU";
+        _packetCaptureVm.Append(new ModbusPacketCaptureEntry(
+            now,
+            "Rx",
+            source,
+            BuildCaptureLine(now, "Rx", protocolText, source, BuildRxNumbers(listener, fc, addr, qty))));
+
+        _packetCaptureVm.Append(new ModbusPacketCaptureEntry(
+            now,
+            "Tx",
+            source,
+            BuildCaptureLine(now, "Tx", protocolText, source, BuildTxNumbers(listener, fc, addr, qty))));
+    }
+
+    private static string BuildCaptureLine(DateTime timestamp, string direction, string protocol, string source, IEnumerable<int> numbers)
+        => $"{timestamp:HH:mm:ss.fff}-{direction}: {protocol} src={source}  {string.Join(' ', numbers)}";
+
+    private IEnumerable<int> BuildRxNumbers(SlaveListenerConfig listener, byte fc, int addr, int qty)
+    {
+        yield return listener.SlaveId;
+        yield return fc;
+        yield return addr;
+        yield return qty;
+
+        if (fc == 16 && qty > 0)
+        {
+            var safeQty = Math.Clamp(qty, 0, 123);
+            yield return safeQty * 2;
+
+            foreach (var value in ReadCaptureValues(listener, addr, safeQty))
+                yield return value;
+        }
+    }
+
+    private IEnumerable<int> BuildTxNumbers(SlaveListenerConfig listener, byte fc, int addr, int qty)
+    {
+        yield return listener.SlaveId;
+        yield return fc;
+
+        if (fc == 3 || fc == 4)
+        {
+            var safeQty = Math.Clamp(qty, 0, 125);
+            yield return safeQty * 2;
+
+            foreach (var value in ReadCaptureValues(listener, addr, safeQty))
+                yield return value;
+        }
+        else
+        {
+            yield return addr;
+            yield return qty;
+        }
+    }
+
+    private ushort[] ReadCaptureValues(SlaveListenerConfig? listener, int addr, int qty)
+    {
+        try
+        {
+            if (listener?.Service is IRegisterSnapshotSlaveService snapshotService)
+                return snapshotService.ReadHoldingRegisters(addr, qty);
+
+            return qty > 0 ? _bank.ReadRange(addr, qty) : [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private string BuildRequestValueDetails(SlaveListenerConfig listener, int addr, int qty)
     {
         if (qty <= 0)
             return string.Empty;
 
         try
         {
-            var values = _bank.ReadRange(addr, qty);
+            var values = listener.Service is IRegisterSnapshotSlaveService snapshotService
+                ? snapshotService.ReadHoldingRegisters(addr, qty)
+                : _bank.ReadRange(addr, qty);
             var parts = values
                 .Select((value, index) => $"{addr + index}:{value}(0x{value:X4})");
             return $"  values=[{string.Join(", ", parts)}]";
@@ -1267,6 +1555,17 @@ public partial class SlaveViewModel : ObservableObject
         return inspectorMatch || activeDevices.Any(vm => DeviceMatchesRequest(vm, requestStart, requestEnd));
     }
 
+    private bool ListenerContainsAddress(SlaveListenerConfig listener, int address)
+    {
+        if (IsInspectorSession(listener))
+        {
+            return SelectedDevice is RegisterInspectorViewModel inspectorVm
+                   && InspectorMatchesRequest(inspectorVm, address, address);
+        }
+
+        return GetActiveDevicesForListener(listener)
+            .Any(vm => DeviceMatchesRequest(vm, address, address));
+    }
     private static bool InspectorMatchesRequest(RegisterInspectorViewModel inspectorVm, int requestStart, int requestEnd)
     {
         try
@@ -1299,9 +1598,101 @@ public partial class SlaveViewModel : ObservableObject
         return requestEnd >= start && requestStart <= end;
     }
 
+    private void FlushDeviceToRegistersForListening(DeviceViewModelBase vm)
+    {
+        try
+        {
+            if (vm is ImportedDeviceViewModel imported)
+                imported.FlushCurrentValuesToRegisters();
+            else
+                vm.FlushToRegisters();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"刷新监听设备寄存器失败：device={vm.DeviceName}, {ex.Message}");
+        }
+    }
+
+    private void PushRunningListenerSnapshots()
+    {
+        foreach (var listener in Listeners.Where(l => l.IsRunning).ToList())
+            PushListenerSnapshot(listener);
+    }
+
+    private void PushRunningListenerSnapshotsForDevice(DeviceViewModelBase vm)
+    {
+        FlushDeviceToRegistersForListening(vm);
+        foreach (var listener in Listeners
+                     .Where(l => l.IsRunning && ReferenceEquals(ResolveBoundDevice(l), vm))
+                     .ToList())
+        {
+            PushListenerSnapshot(listener);
+        }
+    }
+
+    private void PushListenerSnapshot(SlaveListenerConfig listener)
+    {
+        if (listener.Service is not IRegisterSnapshotSlaveService snapshotService)
+            return;
+
+        var values = BuildListenerRegisterSnapshot(listener);
+        snapshotService.ReplaceHoldingRegisters(values);
+    }
+
+    private IReadOnlyDictionary<int, ushort> BuildListenerRegisterSnapshot(SlaveListenerConfig listener)
+    {
+        var result = new Dictionary<int, ushort>();
+        if (IsInspectorSession(listener))
+            return result;
+
+        foreach (var vm in GetActiveDevicesForListener(listener))
+        {
+            foreach (var (address, value) in EnumerateDeviceRegisterValues(vm))
+                result[address] = value;
+        }
+
+        return result;
+    }
+
+    private IEnumerable<KeyValuePair<int, ushort>> EnumerateDeviceRegisterValues(DeviceViewModelBase vm)
+    {
+        if (vm is ImportedDeviceViewModel imported)
+        {
+            foreach (var row in imported.Rows.Where(r => !r.IsPending))
+                yield return new KeyValuePair<int, ushort>(row.Address, row.CurrentValueRaw);
+            yield break;
+        }
+
+        if (!TryGetBuiltinAddressRange(vm, out var start, out var count) || count <= 0)
+            yield break;
+
+        ushort[] values;
+        try
+        {
+            values = _bank.ReadRange(start, count);
+        }
+        catch
+        {
+            yield break;
+        }
+
+        for (var i = 0; i < values.Length; i++)
+            yield return new KeyValuePair<int, ushort>(start + i, values[i]);
+    }
+
     private static bool TryGetBuiltinBaseAddress(DeviceViewModelBase vm, out int baseAddress)
     {
+        if (TryGetBuiltinAddressRange(vm, out baseAddress, out _))
+            return true;
+
         baseAddress = 0;
+        return false;
+    }
+
+    private static bool TryGetBuiltinAddressRange(DeviceViewModelBase vm, out int baseAddress, out int registerCount)
+    {
+        baseAddress = 0;
+        registerCount = 0;
 
         try
         {
@@ -1318,6 +1709,11 @@ public partial class SlaveViewModel : ObservableObject
             if (baseProp?.GetValue(model) is int value)
             {
                 baseAddress = value;
+                var countProp = model.GetType().GetProperty(
+                    "RegisterCount",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (countProp?.GetValue(model) is int count)
+                    registerCount = count;
                 return true;
             }
         }
@@ -1336,34 +1732,181 @@ public partial class SlaveViewModel : ObservableObject
 
     private List<DeviceViewModelBase> GetActiveDevicesForListener(SlaveListenerConfig listener)
     {
-        var allImportedActive = ImportedDevices
-            .Where(v => v.IsSimulating)
+        var device = ResolveBoundDevice(listener);
+        return device is null ? [] : [device];
+    }
+
+    private List<DeviceViewModelBase> GetActiveDevicesForRunningListeners()
+        => Listeners
+            .Where(l => l.IsRunning && !IsInspectorSession(l))
+            .SelectMany(GetActiveDevicesForListener)
+            .Distinct()
             .ToList();
 
-        var builtinActive = BuiltinDevices
-            .Where(v => v.IsSimulating)
-            .Cast<DeviceViewModelBase>()
-            .ToList();
+    private DeviceViewModelBase? ResolveBoundDevice(SlaveListenerConfig listener)
+    {
+        if (string.IsNullOrWhiteSpace(listener.BoundDeviceKey) && listener.DbId > 0)
+            listener.BoundDeviceKey = BuildImportedDeviceKey(listener.DbId);
 
-        if (listener.DbId > 0)
+        var key = listener.BoundDeviceKey;
+        if (string.IsNullOrWhiteSpace(key))
+            return null;
+
+        if (key.StartsWith(BuiltinDeviceKeyPrefix, StringComparison.Ordinal))
         {
-            var boundImported = allImportedActive
-                .Where(v => v.DbId == listener.DbId)
-                .ToList();
-
-            if (boundImported.Count > 0)
-                return builtinActive
-                    .Concat(boundImported.Cast<DeviceViewModelBase>())
-                    .ToList();
-
-            return builtinActive
-                .Concat(allImportedActive.Cast<DeviceViewModelBase>())
-                .ToList();
+            var indexText = key[BuiltinDeviceKeyPrefix.Length..];
+            return int.TryParse(indexText, out var index) && index >= 0 && index < BuiltinDevices.Count
+                ? BuiltinDevices[index]
+                : null;
         }
 
-        return builtinActive
-            .Concat(allImportedActive.Cast<DeviceViewModelBase>())
-            .ToList();
+        if (key.StartsWith(ImportedDeviceKeyPrefix, StringComparison.Ordinal))
+        {
+            var idText = key[ImportedDeviceKeyPrefix.Length..];
+            return int.TryParse(idText, out var dbId)
+                ? ImportedDevices.FirstOrDefault(v => v.DbId == dbId)
+                : null;
+        }
+
+        return null;
+    }
+
+    private static string BuildBuiltinDeviceKey(int index) => $"{BuiltinDeviceKeyPrefix}{index}";
+    private static string BuildImportedDeviceKey(int dbId) => $"{ImportedDeviceKeyPrefix}{dbId}";
+
+    private void EnsureListenerHasDefaultProtocolBinding(SlaveListenerConfig listener)
+    {
+        if (IsInspectorBypassEnabled())
+            return;
+
+        if (!string.IsNullOrWhiteSpace(listener.BoundDeviceKey) && ResolveBoundDevice(listener) is not null)
+            return;
+
+        RefreshListenerDeviceProtocolOptions();
+        var first = listener.AvailableDeviceProtocols.FirstOrDefault();
+        if (first is not null)
+            listener.BoundDeviceKey = first.Key;
+    }
+
+    private void RefreshListenerDeviceProtocolOptions()
+    {
+        if (_isRefreshingListenerProtocolOptions)
+            return;
+
+        _isRefreshingListenerProtocolOptions = true;
+        try
+        {
+            var usedKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var listener in Listeners.ToList())
+                RefreshDeviceProtocolOptions(listener, usedKeys);
+        }
+        finally
+        {
+            _isRefreshingListenerProtocolOptions = false;
+        }
+    }
+
+    private void RefreshOtherListenerDeviceProtocolOptions(SlaveListenerConfig changedListener)
+    {
+        if (_isRefreshingListenerProtocolOptions)
+            return;
+
+        _isRefreshingListenerProtocolOptions = true;
+        try
+        {
+            var usedKeys = new HashSet<string>(StringComparer.Ordinal);
+
+            if (!string.IsNullOrWhiteSpace(changedListener.BoundDeviceKey))
+                usedKeys.Add(changedListener.BoundDeviceKey);
+
+            foreach (var listener in Listeners.Where(l => !ReferenceEquals(l, changedListener)).ToList())
+                RefreshDeviceProtocolOptions(listener, usedKeys);
+        }
+        finally
+        {
+            _isRefreshingListenerProtocolOptions = false;
+        }
+    }
+
+    private void RefreshDeviceProtocolOptions(SlaveListenerConfig listener, HashSet<string>? usedKeys = null)
+    {
+        var selectedKey = listener.BoundDeviceKey;
+        var options = BuildDeviceProtocolOptions(listener, usedKeys);
+
+        _suppressListenerBindingRefresh = true;
+        try
+        {
+            listener.AvailableDeviceProtocols.Clear();
+            foreach (var option in options)
+                listener.AvailableDeviceProtocols.Add(option);
+
+            if (IsInspectorBypassEnabled())
+            {
+                listener.BoundDeviceKey = selectedKey;
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedKey)
+                && options.Any(o => o.Key == selectedKey))
+            {
+                listener.BoundDeviceKey = selectedKey;
+                usedKeys?.Add(selectedKey);
+                return;
+            }
+
+            listener.BoundDeviceKey = options.FirstOrDefault()?.Key;
+            if (!string.IsNullOrWhiteSpace(listener.BoundDeviceKey))
+                usedKeys?.Add(listener.BoundDeviceKey);
+        }
+        finally
+        {
+            _suppressListenerBindingRefresh = false;
+        }
+    }
+
+    private List<DeviceProtocolOption> BuildDeviceProtocolOptions(
+        SlaveListenerConfig listener,
+        HashSet<string>? usedKeys = null)
+    {
+        if (IsInspectorBypassEnabled())
+            return [];
+
+        usedKeys ??= Listeners
+            .Where(l => !ReferenceEquals(l, listener) && !string.IsNullOrWhiteSpace(l.BoundDeviceKey))
+            .Select(l => l.BoundDeviceKey!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var options = new List<DeviceProtocolOption>();
+        for (var i = 0; i < BuiltinDevices.Count; i++)
+        {
+            var key = BuildBuiltinDeviceKey(i);
+            if (!usedKeys.Contains(key))
+                options.Add(new DeviceProtocolOption(key, BuiltinDevices[i].DeviceName));
+        }
+
+        foreach (var imported in ImportedDevices.Where(v => v.DbId > 0))
+        {
+            var key = BuildImportedDeviceKey(imported.DbId);
+            if (!usedKeys.Contains(key))
+                options.Add(new DeviceProtocolOption(key, imported.DeviceName));
+        }
+
+        return options;
+    }
+
+    private ushort? GetActiveImportedPeerValueForAddress(ImportedDeviceViewModel owner, int address)
+    {
+        foreach (var vm in ImportedDevices)
+        {
+            if (ReferenceEquals(vm, owner) || !vm.IsSimulating)
+                continue;
+
+            var row = vm.Rows.FirstOrDefault(r => !r.IsPending && r.Address == address);
+            if (row != null)
+                return row.CurrentValueRaw;
+        }
+
+        return null;
     }
 
     private static bool IsConnectionForListener(TcpConnectionInformation c, SlaveListenerConfig listener)
@@ -1423,20 +1966,16 @@ public partial class SlaveViewModel : ObservableObject
     }
 
     private bool ShouldListenerBeActive(SlaveListenerConfig listener)
-        => listener.IsEnabled && (IsInspectorBypassEnabled() || GetActiveDevicesForListener(listener).Count > 0);
+        => IsInspectorBypassEnabled() || ResolveBoundDevice(listener) is not null;
 
     private bool IsInspectorBypassEnabled()
         => SelectedDevice is RegisterInspectorViewModel;
 
     private string GetListenerNotReadyReason(SlaveListenerConfig listener)
     {
-        if (!listener.IsEnabled)
-            return "请先勾选监听配置后再启动";
         if (IsInspectorBypassEnabled())
             return "寄存器检视模式可直接启动";
-        if (listener.DbId > 0)
-            return "请先勾选该协议导入设备后再启动对应监听";
-        return "请先勾选设备列表中的设备后再启动监听";
+        return "请选择一个设备协议后再启动监听";
     }
 
     private async Task ApplyListenerProfileForSelectedDeviceAsync(DeviceViewModelBase? selectedDevice, int profileVersion)
@@ -1454,9 +1993,10 @@ public partial class SlaveViewModel : ObservableObject
         if (profileVersion != _listenerProfileVersion)
             return;
 
-        Listeners.Clear();
+        ClearListenerConfigs();
         foreach (var listener in desiredListeners)
-            Listeners.Add(listener);
+            AddListenerConfig(listener, refreshProtocolOptions: false);
+        RefreshListenerDeviceProtocolOptions();
 
         OnPropertyChanged(nameof(Listeners));
     }
@@ -1491,7 +2031,8 @@ public partial class SlaveViewModel : ObservableObject
             BaudRate = cfg.BaudRate,
             SlaveId = cfg.SlaveId,
             DbId = cfg.Id,
-            IsEnabled = true
+            IsEnabled = true,
+            BoundDeviceKey = cfg.Id > 0 ? BuildImportedDeviceKey(cfg.Id) : null
         };
 
     private static SlaveDeviceConfig CloneDeviceConfig(SlaveDeviceConfig cfg, int id)
@@ -1513,11 +2054,11 @@ public partial class SlaveViewModel : ObservableObject
         if (builtin != null) return builtin;
 
         builtin = new SlaveListenerConfig { IsEnabled = true };
-        Listeners.Insert(0, builtin);
+        InsertListenerConfig(0, builtin);
         return builtin;
     }
 
     private bool HasAnyActiveSimulationDevice()
-        => DeviceList.Any(v => v.IsSimulating) || ImportedDevices.Any(v => v.IsSimulating);
+        => Listeners.Any(l => ResolveBoundDevice(l) is not null) || IsInspectorBypassEnabled();
 }
 
