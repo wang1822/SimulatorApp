@@ -1,4 +1,4 @@
-using SimulatorApp.Shared.Services;
+﻿using SimulatorApp.Shared.Services;
 using SimulatorApp.Slave.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
@@ -103,5 +103,33 @@ public partial class ImportedDevicePanel : UserControl
     {
         if (sender is TextBox tb && tb.DataContext is ImportedRegisterRow row)
             row.TryCommitWrite();
+    }
+
+    private void CurrentValue_DisplayModeMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ImportedRegisterRow clickedRow } fe)
+            return;
+
+        var key = fe.Tag as string;
+        var targetRows = GetDisplayModeTargetRows(clickedRow);
+        foreach (var row in targetRows)
+            row.SetDisplayMode(key);
+    }
+
+    private List<ImportedRegisterRow> GetDisplayModeTargetRows(ImportedRegisterRow clickedRow)
+    {
+        var selectedRows = RegisterDataGrid.SelectedItems
+            .OfType<ImportedRegisterRow>()
+            .Concat(RegisterDataGrid.SelectedCells
+                .Select(cell => cell.Item)
+                .OfType<ImportedRegisterRow>())
+            .Where(row => !row.IsPending)
+            .Distinct()
+            .ToList();
+
+        if (selectedRows.Contains(clickedRow))
+            return selectedRows;
+
+        return clickedRow.IsPending ? new List<ImportedRegisterRow>() : new List<ImportedRegisterRow> { clickedRow };
     }
 }

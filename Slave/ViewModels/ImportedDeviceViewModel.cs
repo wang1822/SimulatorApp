@@ -8,6 +8,7 @@ using SimulatorApp.Slave.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Data;
+using System.Globalization;
 using System.Windows.Threading;
 
 namespace SimulatorApp.Slave.ViewModels;
@@ -239,8 +240,12 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
             {
                 if (DbService != null && DbId > 0)
                     _ = DbService.UpdateRowIsVerifiedAsync(DbId, addr, verified);
-            });
+            },
+            rowResolver: ResolveRowByAddress);
     }
+
+    private ImportedRegisterRow? ResolveRowByAddress(int address)
+        => Rows.FirstOrDefault(r => !r.IsPending && r.Address == address);
 
     public void BeginRename()
     {
@@ -561,9 +566,9 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
 }
 
 /// <summary>
-/// 显示模式：十进制 / 二进制 / 十六进制
+/// 显示模式：无符号十进制 / 有符号十进制 / 二进制 / 十六进制 / 字符串
 /// </summary>
-public enum RegisterValueDisplayMode { Decimal, Binary, Hexadecimal }
+public enum RegisterValueDisplayMode { UnsignedDecimal, SignedDecimal, Binary, Hexadecimal, String, FloatABCD }
 
 /// <summary>单条导入寄存器行（支持读写当前值、内联编辑名称）</summary>
 public sealed partial class ImportedRegisterRow : ObservableObject
@@ -588,36 +593,94 @@ public sealed partial class ImportedRegisterRow : ObservableObject
 
     // ── 当前值显示模式（右键切换）──────────────────────────────────
     [ObservableProperty]
-    private RegisterValueDisplayMode _displayMode = RegisterValueDisplayMode.Decimal;
+    private RegisterValueDisplayMode _displayMode = RegisterValueDisplayMode.UnsignedDecimal;
 
     partial void OnDisplayModeChanged(RegisterValueDisplayMode value)
     {
-        OnPropertyChanged(nameof(IsDecimalMode));
+        OnPropertyChanged(nameof(IsUnsignedDecimalMode));
+        OnPropertyChanged(nameof(IsSignedDecimalMode));
         OnPropertyChanged(nameof(IsBinaryMode));
         OnPropertyChanged(nameof(IsHexMode));
+        OnPropertyChanged(nameof(IsStringMode));
+        OnPropertyChanged(nameof(IsFloatABCDMode));
         OnPropertyChanged(nameof(CurrentValueDisplay));
+        NotifyFloatPeerStateChanged();
     }
 
-    public bool IsDecimalMode => DisplayMode == RegisterValueDisplayMode.Decimal;
-    public bool IsBinaryMode  => DisplayMode == RegisterValueDisplayMode.Binary;
-    public bool IsHexMode     => DisplayMode == RegisterValueDisplayMode.Hexadecimal;
+    public bool IsUnsignedDecimalMode => DisplayMode == RegisterValueDisplayMode.UnsignedDecimal;
+    public bool IsSignedDecimalMode   => DisplayMode == RegisterValueDisplayMode.SignedDecimal;
+    public bool IsBinaryMode          => DisplayMode == RegisterValueDisplayMode.Binary;
+    public bool IsHexMode             => DisplayMode == RegisterValueDisplayMode.Hexadecimal;
+    public bool IsStringMode          => DisplayMode == RegisterValueDisplayMode.String;
+    public bool IsFloatABCDMode       => DisplayMode == RegisterValueDisplayMode.FloatABCD;
 
     // ── 当前寄存器原始值（定时从 RegisterBank 刷新）────────────────
     [ObservableProperty]
     private ushort _currentValueRaw;
 
     partial void OnCurrentValueRawChanged(ushort value)
-        => OnPropertyChanged(nameof(CurrentValueDisplay));
+    {
+        OnPropertyChanged(nameof(CurrentValueDisplay));
+        _rowResolver?.Invoke(Address - 1)?.OnPropertyChanged(nameof(CurrentValueDisplay));
+    }
 
     /// <summary>按显示模式格式化的当前值字符串</summary>
     public string CurrentValueDisplay => DisplayMode switch
     {
-        RegisterValueDisplayMode.Binary => Convert.ToString(CurrentValueRaw, 2).PadLeft(16, '0'),
-        RegisterValueDisplayMode.Hexadecimal => $"0x{CurrentValueRaw:X4}",
+        RegisterValueDisplayMode.SignedDecimal => unchecked((short)CurrentValueRaw).ToString(),
+        RegisterValueDisplayMode.Binary        => Convert.ToString(CurrentValueRaw, 2).PadLeft(16, '0'),
+        RegisterValueDisplayMode.Hexadecimal   => $"0x{CurrentValueRaw:X4}",
+        RegisterValueDisplayMode.String        => FormatRegisterString(CurrentValueRaw),
+        RegisterValueDisplayMode.FloatABCD     => FormatFloatABCD(),
         _ => CurrentValueRaw.ToString()
     };
 
     // ── 写入输入框文本（编辑时绑定）────────────────────────────────
+    private static string FormatRegisterString(ushort value)
+    {
+        char hi = (char)(value >> 8);
+        char lo = (char)(value & 0xFF);
+        if (lo == '\0') return hi == '\0' ? string.Empty : hi.ToString();
+        return new string(new[] { hi, lo });
+    }
+
+    private string FormatFloatABCD()
+    {
+        var next = _rowResolver?.Invoke(Address + 1);
+        if (next == null) return string.Empty;
+
+        var bytes = new[]
+        {
+            (byte)(CurrentValueRaw >> 8),
+            (byte)(CurrentValueRaw & 0xFF),
+            (byte)(next.CurrentValueRaw >> 8),
+            (byte)(next.CurrentValueRaw & 0xFF)
+        };
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(bytes);
+        return BitConverter.ToSingle(bytes, 0).ToString("G9", CultureInfo.InvariantCulture);
+    }
+
+    public bool IsFloatSecondWord => _rowResolver?.Invoke(Address - 1)?.DisplayMode == RegisterValueDisplayMode.FloatABCD;
+    public bool CanWriteCurrentValue => !IsPending && !IsFloatSecondWord;
+    public string CurrentValueToolTip => IsFloatSecondWord
+        ? "上一地址为 Float AB CD，本地址作为低 16 位，禁止单独写入"
+        : "双击编辑写入；右键切换显示模式";
+
+    private void NotifyFloatPeerStateChanged()
+    {
+        OnPropertyChanged(nameof(CanWriteCurrentValue));
+        OnPropertyChanged(nameof(CurrentValueToolTip));
+        _rowResolver?.Invoke(Address + 1)?.NotifyFloatSecondWordStateChanged();
+    }
+
+    private void NotifyFloatSecondWordStateChanged()
+    {
+        OnPropertyChanged(nameof(IsFloatSecondWord));
+        OnPropertyChanged(nameof(CanWriteCurrentValue));
+        OnPropertyChanged(nameof(CurrentValueToolTip));
+    }
+
     [ObservableProperty]
     private string _writeValueText = string.Empty;
 
@@ -639,6 +702,7 @@ public sealed partial class ImportedRegisterRow : ObservableObject
     private readonly Action<string, string>?     _onMetaCommit;
     private readonly Action?                     _onCheckedChanged;
     private readonly Action<int, bool>?          _onVerifyCommit;
+    private readonly Func<int, ImportedRegisterRow?>? _rowResolver;
 
     public ImportedRegisterRow(string chineseName, string englishName, int address,
                                 string readWrite, string range, string unit, string note,
@@ -646,7 +710,8 @@ public sealed partial class ImportedRegisterRow : ObservableObject
                                 Action<int, ushort>?    onCommit        = null,
                                 Action<string, string>? onMetaCommit    = null,
                                 Action?                 onCheckedChanged = null,
-                                Action<int, bool>?      onVerifyCommit  = null)
+                                Action<int, bool>?      onVerifyCommit  = null,
+                                Func<int, ImportedRegisterRow?>? rowResolver = null)
     {
         // 直接赋字段，绕过 ObservableProperty setter，避免构造时触发回调
         _chineseName      = chineseName          ?? string.Empty;
@@ -661,6 +726,7 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         _onMetaCommit     = onMetaCommit;
         _onCheckedChanged = onCheckedChanged;
         _onVerifyCommit   = onVerifyCommit;     // 最后赋值，确保初始化不触发
+        _rowResolver      = rowResolver;
     }
 
     public void RestoreIsVerified(bool value)
@@ -686,15 +752,33 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         catch { /* 地址越界时忽略 */ }
     }
 
-    /// <summary>右键菜单切换显示模式命令（"dec" = 十进制，"bin" = 二进制，"hex" = 十六进制）</summary>
+    /// <summary>右键菜单切换显示模式命令。</summary>
     [RelayCommand]
     public void SetDisplayMode(string? key)
-        => DisplayMode = key switch
+    {
+        if (IsFloatSecondWord)
+            return;
+
+        if (string.Equals(key, "float", StringComparison.Ordinal) && _rowResolver?.Invoke(Address + 1) == null)
+            return;
+
+        DisplayMode = key switch
         {
+            "sdec" => RegisterValueDisplayMode.SignedDecimal,
             "bin" => RegisterValueDisplayMode.Binary,
             "hex" => RegisterValueDisplayMode.Hexadecimal,
-            _ => RegisterValueDisplayMode.Decimal
+            "str" => RegisterValueDisplayMode.String,
+            "float" => RegisterValueDisplayMode.FloatABCD,
+            _ => RegisterValueDisplayMode.UnsignedDecimal
         };
+
+        if (DisplayMode == RegisterValueDisplayMode.FloatABCD)
+        {
+            var next = _rowResolver?.Invoke(Address + 1);
+            if (next != null && next.DisplayMode != RegisterValueDisplayMode.UnsignedDecimal)
+                next.DisplayMode = RegisterValueDisplayMode.UnsignedDecimal;
+        }
+    }
 
     /// <summary>
     /// 将 WriteValueText 解析后写入 RegisterBank，并触发 DB 持久化。
@@ -702,13 +786,46 @@ public sealed partial class ImportedRegisterRow : ObservableObject
     /// </summary>
     public bool TryCommitWrite()
     {
-        var text = WriteValueText.Trim();
-        if (string.IsNullOrEmpty(text)) return false;
+        var rawText = WriteValueText ?? string.Empty;
+        var text = rawText.Trim();
+
+        if (IsFloatSecondWord)
+            return false;
 
         ushort val;
-        var cleaned = text.Replace(" ", "").Replace("_", "");
+        if (DisplayMode == RegisterValueDisplayMode.FloatABCD)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            var next = _rowResolver?.Invoke(Address + 1);
+            if (next == null) return false;
+            if (!float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out var floatValue)
+                && !float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out floatValue))
+                return false;
 
-        if (cleaned.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
+            var bytes = BitConverter.GetBytes(floatValue);
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(bytes);
+
+            val = (ushort)((bytes[0] << 8) | bytes[1]);
+            var nextVal = (ushort)((bytes[2] << 8) | bytes[3]);
+            WriteValue(val);
+            next.WriteValue(nextVal);
+            return true;
+        }
+        if (DisplayMode == RegisterValueDisplayMode.String)
+        {
+            if (rawText.Length > 2) return false;
+            if (rawText.Any(c => c > 0xFF)) return false;
+            byte hi = rawText.Length > 0 ? (byte)rawText[0] : (byte)0;
+            byte lo = rawText.Length > 1 ? (byte)rawText[1] : (byte)0;
+            val = (ushort)((hi << 8) | lo);
+        }
+        else if (string.IsNullOrEmpty(text)) return false;
+        else
+        {
+            var cleaned = text.Replace(" ", "").Replace("_", "");
+
+            if (cleaned.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
         {
             try { val = Convert.ToUInt16(cleaned[2..], 2); }
             catch { return false; }
@@ -726,9 +843,16 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         {
             if (!ushort.TryParse(cleaned, System.Globalization.NumberStyles.HexNumber, null, out val)) return false;
         }
+        else if (DisplayMode == RegisterValueDisplayMode.SignedDecimal)
+        {
+            if (!short.TryParse(text, out var signedVal)) return false;
+            val = unchecked((ushort)signedVal);
+        }
         else
         {
             if (!ushort.TryParse(text, out val)) return false;
+        }
+
         }
 
         _bank.Write(Address, val);
