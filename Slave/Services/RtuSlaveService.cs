@@ -20,6 +20,7 @@ public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
     private Task?                        _listenTask;
     private DataStore?                   _dataStore;
     private readonly HashSet<int>        _snapshotAddresses = new();
+    private readonly object              _dataStoreSyncRoot = new();
 
     public bool         IsRunning { get; private set; }
     public byte         SlaveId   { get; private set; }
@@ -27,6 +28,7 @@ public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
 
     public string   PortName  { get; set; } = "COM3";
     public int      BaudRate  { get; set; } = 9600;
+    public byte     FunctionCode { get; set; } = 3;
     public Func<int, bool>? RegisterAddressFilter { get; set; }
     public int      DataBits  { get; set; } = 8;
     public StopBits StopBits  { get; set; } = StopBits.One;
@@ -71,12 +73,7 @@ public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
             var token = _cts.Token;
             _listenTask = Task.Run(() =>
             {
-                try { _slave.Listen(); }
-                catch (Exception ex)
-                {
-                    if (!token.IsCancellationRequested)
-                        AppLogger.Error("RTU 从站监听异常", ex);
-                }
+                ListenWithRecovery(token);
             });
 
             await Task.CompletedTask;
@@ -86,6 +83,87 @@ public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
             IsRunning = false;
             AppLogger.Error($"RTU 从站启动失败：{ex.Message}", ex);
             throw;
+        }
+    }
+
+    private void ListenWithRecovery(CancellationToken token)
+    {
+        var recoverableErrorCount = 0;
+        var lastRecoverableLogAt = DateTime.MinValue;
+
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                _slave?.Listen();
+                if (!token.IsCancellationRequested)
+                    AppLogger.Warn($"RTU 从站监听已返回：{PortName}");
+                break;
+            }
+            catch (Exception ex)
+            {
+                if (token.IsCancellationRequested || !IsRunning)
+                    break;
+
+                if (!IsRecoverableRtuFrameException(ex))
+                {
+                    AppLogger.Error("RTU 从站监听异常", ex);
+                    break;
+                }
+
+                recoverableErrorCount++;
+                ClearSerialBuffers();
+
+                var now = DateTime.UtcNow;
+                if (recoverableErrorCount <= 3 || now - lastRecoverableLogAt >= TimeSpan.FromSeconds(5))
+                {
+                    AppLogger.Warn(
+                        $"RTU 从站收到异常帧，已清空缓冲并继续监听：{PortName} " +
+                        $"SlaveID={SlaveId} Count={recoverableErrorCount} Error={ex.Message}");
+                    lastRecoverableLogAt = now;
+                }
+
+                try
+                {
+                    Task.Delay(50, token).Wait(token);
+                }
+                catch
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    private static bool IsRecoverableRtuFrameException(Exception ex)
+    {
+        if (ex is NotImplementedException)
+            return true;
+
+        if (ex is ArgumentOutOfRangeException argEx
+            && string.Equals(argEx.ParamName, "NumberOfPoints", StringComparison.Ordinal))
+            return true;
+
+        if (ex is FormatException formatEx
+            && formatEx.Message.Contains("even number of bytes", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+
+    private void ClearSerialBuffers()
+    {
+        try
+        {
+            if (_serialPort?.IsOpen == true)
+            {
+                _serialPort.DiscardInBuffer();
+                _serialPort.DiscardOutBuffer();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"RTU 从站清空串口缓冲失败：{PortName} {ex.Message}");
         }
     }
 
@@ -109,67 +187,116 @@ public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
 
     private void SyncOneRegister(int address, ushort value)
     {
-        if (_dataStore != null
-            && (uint)address < 65536
-            && (RegisterAddressFilter?.Invoke(address) ?? true))
+        lock (_dataStoreSyncRoot)
         {
-            _dataStore.HoldingRegisters[(ushort)(address + 1)] = value;
-        }
-    }
-
-    public void ReplaceHoldingRegisters(IReadOnlyDictionary<int, ushort> values)
-    {
-        if (_dataStore == null) return;
-
-        foreach (var address in _snapshotAddresses.Except(values.Keys).ToList())
-        {
-            if ((uint)address < 65536)
-                _dataStore.HoldingRegisters[(ushort)(address + 1)] = 0;
-        }
-
-        _snapshotAddresses.Clear();
-        foreach (var (address, value) in values)
-        {
-            if ((uint)address < 65536)
+            if (_dataStore != null
+                && (uint)address < 65536
+                && (RegisterAddressFilter?.Invoke(address) ?? true))
             {
-                _dataStore.HoldingRegisters[(ushort)(address + 1)] = value;
-                _snapshotAddresses.Add(address);
+                SyncSnapshotValue(address, value);
             }
         }
     }
 
-    public ushort[] ReadHoldingRegisters(int startAddress, int count)
+    public void ReplaceSnapshotValues(IReadOnlyDictionary<int, ushort> values)
     {
-        if (_dataStore == null || count <= 0)
-            return [];
-
-        var result = new ushort[count];
-        for (var i = 0; i < count; i++)
+        lock (_dataStoreSyncRoot)
         {
-            var address = startAddress + i;
-            if ((uint)address < 65536)
-                result[i] = _dataStore.HoldingRegisters[(ushort)(address + 1)];
-        }
+            if (_dataStore == null) return;
 
-        return result;
+            foreach (var address in _snapshotAddresses.Except(values.Keys).ToList())
+            {
+                if ((uint)address < 65536)
+                    SyncSnapshotValue(address, 0);
+            }
+
+            _snapshotAddresses.Clear();
+            foreach (var (address, value) in values)
+            {
+                if ((uint)address < 65536)
+                {
+                    SyncSnapshotValue(address, value);
+                    _snapshotAddresses.Add(address);
+                }
+            }
+        }
+    }
+
+    public ushort[] ReadSnapshotValues(int startAddress, int count)
+    {
+        lock (_dataStoreSyncRoot)
+        {
+            if (_dataStore == null || count <= 0)
+                return [];
+
+            var result = new ushort[count];
+            for (var i = 0; i < count; i++)
+            {
+                var address = startAddress + i;
+                if ((uint)address < 65536)
+                    result[i] = ReadSnapshotValue(address);
+            }
+
+            return result;
+        }
     }
 
     private void SyncBankToDataStore()
     {
-        if (_dataStore == null) return;
-        for (int i = 0; i < 65535; i++)
+        lock (_dataStoreSyncRoot)
         {
-            if (RegisterAddressFilter?.Invoke(i) ?? true)
-                _dataStore.HoldingRegisters[(ushort)(i + 1)] = _bank.Read(i);
+            if (_dataStore == null) return;
+            for (int i = 0; i < 65535; i++)
+            {
+                if (RegisterAddressFilter?.Invoke(i) ?? true)
+                    SyncSnapshotValue(i, _bank.Read(i));
+            }
         }
+    }
+
+    private void SyncSnapshotValue(int address, ushort value)
+    {
+        var dataStoreIndex = (ushort)(address + 1);
+        switch (FunctionCode)
+        {
+            case 1:
+                _dataStore!.CoilDiscretes[dataStoreIndex] = value != 0;
+                break;
+            case 2:
+                _dataStore!.InputDiscretes[dataStoreIndex] = value != 0;
+                break;
+            case 4:
+                _dataStore!.InputRegisters[dataStoreIndex] = value;
+                break;
+            default:
+                _dataStore!.HoldingRegisters[dataStoreIndex] = value;
+                break;
+        }
+    }
+
+    private ushort ReadSnapshotValue(int address)
+    {
+        var dataStoreIndex = (ushort)(address + 1);
+        return FunctionCode switch
+        {
+            1 => _dataStore!.CoilDiscretes[dataStoreIndex] ? (ushort)1 : (ushort)0,
+            2 => _dataStore!.InputDiscretes[dataStoreIndex] ? (ushort)1 : (ushort)0,
+            4 => _dataStore!.InputRegisters[dataStoreIndex],
+            _ => _dataStore!.HoldingRegisters[dataStoreIndex]
+        };
     }
 
     private void OnDataStoreRead(DataStoreEventArgs e)
     {
-        int count = e.ModbusDataType == ModbusDataType.HoldingRegister
-            ? e.Data.B.Count
-            : e.Data.A.Count;
-        OnRequest?.Invoke(3, e.StartAddress, count, PortName);
+        byte functionCode = e.ModbusDataType switch
+        {
+            ModbusDataType.Coil => 1,
+            ModbusDataType.Input => 2,
+            ModbusDataType.InputRegister => 4,
+            _ => 3
+        };
+        int count = functionCode is 3 or 4 ? e.Data.B.Count : e.Data.A.Count;
+        OnRequest?.Invoke(functionCode, e.StartAddress, count, PortName);
     }
 
     private void OnDataStoreWritten(DataStoreEventArgs e)

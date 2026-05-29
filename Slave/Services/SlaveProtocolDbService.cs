@@ -13,6 +13,9 @@ public interface ISlaveProtocolDbService
     Task DeleteDeviceConfigAsync(int id);
     Task<bool> DeviceNameExistsAsync(string name, int excludeId = 0);
     Task UpdateDeviceNameAsync(int id, string name);
+    Task<List<SlaveListenerEnvironment>> GetListenerEnvironmentsAsync();
+    Task<int> SaveListenerEnvironmentAsync(string name, IEnumerable<SlaveListenerEnvironmentItem> items);
+    Task DeleteListenerEnvironmentAsync(int id);
     Task<List<(SlaveDeviceConfig Config, List<ProtocolRow> Rows, Dictionary<int, ushort> CurrentValues, Dictionary<int, bool> VerifiedValues)>> GetAllDeviceConfigsAsync();
     Task UpdateRowCurrentValueAsync(int configId, int address, ushort value);
     Task UpdateRowIsVerifiedAsync(int configId, int address, bool isVerified);
@@ -88,7 +91,45 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
             "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigRows') AND name='CurrentValue')\r\n" +
             "    ALTER TABLE SlaveDeviceConfigRows ADD CurrentValue INT NOT NULL DEFAULT 0;\r\n" +
             "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveDeviceConfigRows') AND name='IsVerified')\r\n" +
-            "    ALTER TABLE SlaveDeviceConfigRows ADD IsVerified BIT NOT NULL DEFAULT 0;";
+            "    ALTER TABLE SlaveDeviceConfigRows ADD IsVerified BIT NOT NULL DEFAULT 0;\r\n\r\n" +
+            "IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE name='SlaveListenerEnvironments' AND type='U')\r\n" +
+            "CREATE TABLE SlaveListenerEnvironments (\r\n" +
+            "    Id        INT IDENTITY(1,1) PRIMARY KEY,\r\n" +
+            "    Name      NVARCHAR(200) NOT NULL,\r\n" +
+            "    CreatedAt DATETIME2     NOT NULL DEFAULT GETDATE(),\r\n" +
+            "    UpdatedAt DATETIME2     NOT NULL DEFAULT GETDATE()\r\n" +
+            ");\r\n\r\n" +
+            "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_SlaveListenerEnvironments_Name' AND object_id=OBJECT_ID('SlaveListenerEnvironments'))\r\n" +
+            "    CREATE UNIQUE INDEX UX_SlaveListenerEnvironments_Name ON SlaveListenerEnvironments(Name);\r\n\r\n" +
+            "IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE name='SlaveListenerEnvironmentItems' AND type='U')\r\n" +
+            "CREATE TABLE SlaveListenerEnvironmentItems (\r\n" +
+            "    Id              INT IDENTITY(1,1) PRIMARY KEY,\r\n" +
+            "    EnvironmentId   INT           NOT NULL,\r\n" +
+            "    SortOrder       INT           NOT NULL DEFAULT 0,\r\n" +
+            "    IsEnabled       BIT           NOT NULL DEFAULT 1,\r\n" +
+            "    BoundDeviceKey  NVARCHAR(100) NULL,\r\n" +
+            "    ListenerDbId    INT           NOT NULL DEFAULT 0,\r\n" +
+            "    Protocol        TINYINT       NOT NULL DEFAULT 0,\r\n" +
+            "    ListenAddress   NVARCHAR(100) NOT NULL DEFAULT '0.0.0.0',\r\n" +
+            "    Port            INT           NOT NULL DEFAULT 502,\r\n" +
+            "    ComPort         NVARCHAR(50)  NOT NULL DEFAULT '',\r\n" +
+            "    BaudRate        INT           NOT NULL DEFAULT 9600,\r\n" +
+            "    SlaveId         TINYINT       NOT NULL DEFAULT 1,\r\n" +
+            "    FunctionCode    TINYINT       NOT NULL DEFAULT 3,\r\n" +
+            "    FOREIGN KEY (EnvironmentId) REFERENCES SlaveListenerEnvironments(Id) ON DELETE CASCADE\r\n" +
+            ");\r\n" +
+            "IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveListenerEnvironmentItems') AND name='FunctionCode')\r\n" +
+            "    ALTER TABLE SlaveListenerEnvironmentItems ADD FunctionCode TINYINT NOT NULL DEFAULT 3;\r\n" +
+            "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('SlaveListenerEnvironmentItems') AND name='ResponseDelayMs')\r\n" +
+            "BEGIN\r\n" +
+            "    DECLARE @dfName NVARCHAR(128);\r\n" +
+            "    SELECT @dfName = dc.name\r\n" +
+            "    FROM sys.default_constraints dc\r\n" +
+            "    INNER JOIN sys.columns c ON c.default_object_id = dc.object_id\r\n" +
+            "    WHERE dc.parent_object_id = OBJECT_ID('SlaveListenerEnvironmentItems') AND c.name = 'ResponseDelayMs';\r\n" +
+            "    IF @dfName IS NOT NULL EXEC('ALTER TABLE SlaveListenerEnvironmentItems DROP CONSTRAINT [' + @dfName + ']');\r\n" +
+            "    ALTER TABLE SlaveListenerEnvironmentItems DROP COLUMN ResponseDelayMs;\r\n" +
+            "END;";
         await using var cmd = new SqlCommand(ddl, conn);
         await cmd.ExecuteNonQueryAsync();
         AppLogger.Info("从站协议数据库初始化完成");
@@ -199,6 +240,165 @@ public class SlaveProtocolDbService : ISlaveProtocolDbService
         await cmd.ExecuteNonQueryAsync();
         AppLogger.Info($"协议设备名称已更新：Id={id}, Name={trimmed}");
     }
+
+    public async Task<List<SlaveListenerEnvironment>> GetListenerEnvironmentsAsync()
+    {
+        await using var conn = new SqlConnection(_cs);
+        await conn.OpenAsync();
+
+        var environments = new List<SlaveListenerEnvironment>();
+        var byId = new Dictionary<int, SlaveListenerEnvironment>();
+        const string sqlEnv =
+            "SELECT Id, Name, CreatedAt, UpdatedAt " +
+            "FROM SlaveListenerEnvironments " +
+            "ORDER BY UpdatedAt DESC, Name";
+        await using (var cmd = new SqlCommand(sqlEnv, conn))
+        await using (var rdr = await cmd.ExecuteReaderAsync())
+        {
+            while (await rdr.ReadAsync())
+            {
+                var env = new SlaveListenerEnvironment
+                {
+                    Id = rdr.GetInt32(0),
+                    Name = rdr.GetString(1),
+                    CreatedAt = rdr.GetDateTime(2),
+                    UpdatedAt = rdr.GetDateTime(3)
+                };
+                environments.Add(env);
+                byId[env.Id] = env;
+            }
+        }
+
+        if (environments.Count == 0)
+            return environments;
+
+        const string sqlItems =
+            "SELECT EnvironmentId, SortOrder, IsEnabled, BoundDeviceKey, ListenerDbId, Protocol, ListenAddress, Port, ComPort, BaudRate, SlaveId, FunctionCode " +
+            "FROM SlaveListenerEnvironmentItems " +
+            "ORDER BY EnvironmentId, SortOrder, Id";
+        await using (var cmd = new SqlCommand(sqlItems, conn))
+        await using (var rdr = await cmd.ExecuteReaderAsync())
+        {
+            while (await rdr.ReadAsync())
+            {
+                var envId = rdr.GetInt32(0);
+                if (!byId.TryGetValue(envId, out var env))
+                    continue;
+
+                env.Items.Add(new SlaveListenerEnvironmentItem
+                {
+                    SortOrder = rdr.GetInt32(1),
+                    IsEnabled = rdr.GetBoolean(2),
+                    BoundDeviceKey = rdr.IsDBNull(3) ? null : rdr.GetString(3),
+                    ListenerDbId = rdr.GetInt32(4),
+                    Protocol = rdr.GetByte(5),
+                    ListenAddress = rdr.GetString(6),
+                    Port = rdr.GetInt32(7),
+                    ComPort = rdr.GetString(8),
+                    BaudRate = rdr.GetInt32(9),
+                    SlaveId = rdr.GetByte(10),
+                    FunctionCode = rdr.GetByte(11)
+                });
+            }
+        }
+
+        return environments;
+    }
+
+    public async Task<int> SaveListenerEnvironmentAsync(string name, IEnumerable<SlaveListenerEnvironmentItem> items)
+    {
+        var trimmed = (name ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+            throw new ArgumentException("监听环境名称不能为空。", nameof(name));
+
+        var snapshot = items
+            .OrderBy(i => i.SortOrder)
+            .ToList();
+
+        await using var conn = new SqlConnection(_cs);
+        await conn.OpenAsync();
+        await using var tx = conn.BeginTransaction();
+        try
+        {
+            int id;
+            const string find = "SELECT Id FROM SlaveListenerEnvironments WHERE Name=@name";
+            await using (var findCmd = new SqlCommand(find, conn, tx))
+            {
+                findCmd.Parameters.AddWithValue("@name", trimmed);
+                var existingId = await findCmd.ExecuteScalarAsync();
+                id = existingId == null || existingId == DBNull.Value ? 0 : Convert.ToInt32(existingId);
+            }
+
+            if (id <= 0)
+            {
+                const string insertEnv =
+                    "INSERT INTO SlaveListenerEnvironments (Name, CreatedAt, UpdatedAt) " +
+                    "OUTPUT INSERTED.Id VALUES (@name, GETDATE(), GETDATE())";
+                await using var insertCmd = new SqlCommand(insertEnv, conn, tx);
+                insertCmd.Parameters.AddWithValue("@name", trimmed);
+                id = Convert.ToInt32(await insertCmd.ExecuteScalarAsync());
+            }
+            else
+            {
+                const string updateEnv =
+                    "UPDATE SlaveListenerEnvironments SET UpdatedAt=GETDATE() WHERE Id=@id";
+                await using var updateCmd = new SqlCommand(updateEnv, conn, tx);
+                updateCmd.Parameters.AddWithValue("@id", id);
+                await updateCmd.ExecuteNonQueryAsync();
+
+                const string deleteOld = "DELETE FROM SlaveListenerEnvironmentItems WHERE EnvironmentId=@id";
+                await using var deleteCmd = new SqlCommand(deleteOld, conn, tx);
+                deleteCmd.Parameters.AddWithValue("@id", id);
+                await deleteCmd.ExecuteNonQueryAsync();
+            }
+
+            const string insertItem =
+                "INSERT INTO SlaveListenerEnvironmentItems " +
+                "    (EnvironmentId, SortOrder, IsEnabled, BoundDeviceKey, ListenerDbId, Protocol, ListenAddress, Port, ComPort, BaudRate, SlaveId, FunctionCode) " +
+                "VALUES (@envId, @sortOrder, @isEnabled, @boundDeviceKey, @listenerDbId, @protocol, @listenAddress, @port, @comPort, @baudRate, @slaveId, @functionCode)";
+            foreach (var item in snapshot)
+            {
+                await using var itemCmd = new SqlCommand(insertItem, conn, tx);
+                itemCmd.Parameters.AddWithValue("@envId", id);
+                itemCmd.Parameters.AddWithValue("@sortOrder", item.SortOrder);
+                itemCmd.Parameters.AddWithValue("@isEnabled", item.IsEnabled);
+                itemCmd.Parameters.AddWithValue("@boundDeviceKey", string.IsNullOrWhiteSpace(item.BoundDeviceKey) ? DBNull.Value : item.BoundDeviceKey);
+                itemCmd.Parameters.AddWithValue("@listenerDbId", item.ListenerDbId);
+                itemCmd.Parameters.AddWithValue("@protocol", (byte)item.Protocol);
+                itemCmd.Parameters.AddWithValue("@listenAddress", item.ListenAddress);
+                itemCmd.Parameters.AddWithValue("@port", item.Port);
+                itemCmd.Parameters.AddWithValue("@comPort", item.ComPort);
+                itemCmd.Parameters.AddWithValue("@baudRate", item.BaudRate);
+                itemCmd.Parameters.AddWithValue("@slaveId", item.SlaveId);
+                itemCmd.Parameters.AddWithValue("@functionCode", (byte)NormalizeFunctionCode(item.FunctionCode));
+                await itemCmd.ExecuteNonQueryAsync();
+            }
+
+            await tx.CommitAsync();
+            AppLogger.Info($"监听环境已保存：Id={id}, Name={trimmed}, Items={snapshot.Count}");
+            return id;
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task DeleteListenerEnvironmentAsync(int id)
+    {
+        if (id <= 0) return;
+
+        await using var conn = new SqlConnection(_cs);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand("DELETE FROM SlaveListenerEnvironments WHERE Id=@id", conn);
+        cmd.Parameters.AddWithValue("@id", id);
+        await cmd.ExecuteNonQueryAsync();
+        AppLogger.Info($"监听环境已删除：Id={id}");
+    }
+
+    private static int NormalizeFunctionCode(int functionCode)
+        => functionCode is 1 or 2 or 3 or 4 ? functionCode : 3;
 
     public async Task<List<(SlaveDeviceConfig Config, List<ProtocolRow> Rows, Dictionary<int, ushort> CurrentValues, Dictionary<int, bool> VerifiedValues)>> GetAllDeviceConfigsAsync()
     {

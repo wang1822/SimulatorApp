@@ -58,6 +58,8 @@ public partial class SlaveViewModel : ObservableObject
     private bool _suppressSimGuard = false;
     private bool _suppressListenerBindingRefresh = false;
     private bool _isRefreshingListenerProtocolOptions = false;
+    private bool _suppressListenerEnvironmentSelectionChanged = false;
+    private bool _isApplyingListenerEnvironment = false;
 
     private static void LogSys(string message) => AppLogger.Info($"[SYS] {message}");
 
@@ -71,7 +73,19 @@ public partial class SlaveViewModel : ObservableObject
 
     /// <summary>所有监听端点配置，支持多条同时运行</summary>
     public ObservableCollection<SlaveListenerConfig> Listeners { get; } = new();
+    public ObservableCollection<SlaveListenerEnvironment> ListenerEnvironments { get; } = new();
     public IRelayCommand AddListenerCommand { get; }
+
+    [ObservableProperty] private SlaveListenerEnvironment? _selectedListenerEnvironment;
+    public bool HasListenerEnvironments => ListenerEnvironments.Count > 0;
+
+    partial void OnSelectedListenerEnvironmentChanged(SlaveListenerEnvironment? oldValue, SlaveListenerEnvironment? newValue)
+    {
+        if (_suppressListenerEnvironmentSelectionChanged || _isApplyingListenerEnvironment || newValue == null)
+            return;
+
+        _ = ApplySelectedListenerEnvironmentAsync(oldValue, newValue);
+    }
 
     /// <summary>任意一条监听处于运行状态即为 true</summary>
     public bool IsRunning => _runningCount > 0;
@@ -227,6 +241,8 @@ public partial class SlaveViewModel : ObservableObject
         };
 
         AddListenerCommand = new RelayCommand(AddListener);
+        ListenerEnvironments.CollectionChanged += (_, _) =>
+            OnPropertyChanged(nameof(HasListenerEnvironments));
     }
 
     private void RegisterDevice(DeviceViewModelBase vm, Func<DeviceViewModelBase, UserControl> panelFactory)
@@ -394,10 +410,24 @@ public partial class SlaveViewModel : ObservableObject
             if (_suppressListenerBindingRefresh || _isRefreshingListenerProtocolOptions)
                 return;
 
-            if (!string.Equals(e.PropertyName, nameof(SlaveListenerConfig.BoundDeviceKey), StringComparison.Ordinal))
+            if (string.Equals(e.PropertyName, nameof(SlaveListenerConfig.BoundDeviceKey), StringComparison.Ordinal))
+            {
+                ClearSelectedListenerEnvironmentForManualChange();
+                RefreshOtherListenerDeviceProtocolOptions(listener);
                 return;
+            }
 
-            RefreshOtherListenerDeviceProtocolOptions(listener);
+            if (e.PropertyName is nameof(SlaveListenerConfig.Protocol)
+                or nameof(SlaveListenerConfig.ListenAddress)
+                or nameof(SlaveListenerConfig.Port)
+                or nameof(SlaveListenerConfig.ComPort)
+                or nameof(SlaveListenerConfig.BaudRate)
+                or nameof(SlaveListenerConfig.SlaveId)
+                or nameof(SlaveListenerConfig.FunctionCode)
+                or nameof(SlaveListenerConfig.IsEnabled))
+            {
+                ClearSelectedListenerEnvironmentForManualChange();
+            }
         };
 
         listener.PropertyChanged += handler;
@@ -434,6 +464,7 @@ public partial class SlaveViewModel : ObservableObject
 
         var listener = new SlaveListenerConfig { Port = port, IsEnabled = true };
         AddListenerConfig(listener);
+        ClearSelectedListenerEnvironmentForManualChange();
         LogSys($"listener-added count={Listeners.Count} port={port}");
         OnPropertyChanged(nameof(Listeners));
     }
@@ -443,7 +474,120 @@ public partial class SlaveViewModel : ObservableObject
     {
         if (config.IsRunning) return;   // 运行中不可删除，按钮已在界面禁用
         RemoveListenerConfig(config);
+        ClearSelectedListenerEnvironmentForManualChange();
         RefreshListenerDeviceProtocolOptions();
+    }
+
+    [RelayCommand]
+    public async Task ClearListenersAsync()
+    {
+        if (!await ConfirmAndPauseRunningListenersAsync())
+            return;
+
+        ClearListenerConfigs();
+        AddListenerConfig(CreateDefaultListener(), refreshProtocolOptions: false);
+        RefreshListenerDeviceProtocolOptions();
+        SetSelectedListenerEnvironmentSilently(null);
+        OnPropertyChanged(nameof(Listeners));
+        LogSys("listeners-cleared restored-default");
+    }
+
+    [RelayCommand]
+    public async Task SaveListenerEnvironmentAsync()
+    {
+        if (!await EnsureSlaveDbConnectedAsync())
+            return;
+
+        var dialog = new SnapshotNameDialog(
+            $"监听环境_{DateTime.Now:yyyyMMdd_HHmmss}",
+            "保存监听环境",
+            "请输入监听环境名称")
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var name = dialog.SnapshotName;
+        var items = BuildListenerEnvironmentItems();
+
+        try
+        {
+            var savedId = await _slaveDbService!.SaveListenerEnvironmentAsync(name, items);
+            await LoadListenerEnvironmentsAsync(selectId: savedId);
+            SlaveDbStatusText = $"监听环境已保存：{name}";
+            LogSys($"listener-environment-saved id={savedId} name={name} items={items.Count}");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"保存监听环境失败：{ex.Message}", ex);
+            ThemedMessageBox.Show($"保存监听环境失败：\n{ex.Message}", "错误",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task ApplySelectedListenerEnvironmentAsync(
+        SlaveListenerEnvironment? previousEnvironment,
+        SlaveListenerEnvironment environment)
+    {
+        if (!await ConfirmAndPauseRunningListenersAsync())
+        {
+            SetSelectedListenerEnvironmentSilently(previousEnvironment);
+            return;
+        }
+
+        _isApplyingListenerEnvironment = true;
+        try
+        {
+            ClearListenerConfigs();
+            var items = environment.Items.OrderBy(i => i.SortOrder).ToList();
+            if (items.Count == 0)
+            {
+                AddListenerConfig(CreateDefaultListener(), refreshProtocolOptions: false);
+            }
+            else
+            {
+                foreach (var item in items)
+                    AddListenerConfig(CreateListenerFromEnvironmentItem(item), refreshProtocolOptions: false);
+            }
+
+            RefreshListenerDeviceProtocolOptions();
+            OnPropertyChanged(nameof(Listeners));
+            SlaveDbStatusText = $"已切换监听环境：{environment.Name}";
+            LogSys($"listener-environment-applied id={environment.Id} name={environment.Name} items={items.Count}");
+        }
+        finally
+        {
+            _isApplyingListenerEnvironment = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task DeleteListenerEnvironmentAsync(SlaveListenerEnvironment? environment)
+    {
+        if (environment == null)
+            return;
+        if (!VerifyPassword())
+            return;
+        if (!await ConfirmAndPauseRunningListenersAsync())
+            return;
+        if (!await EnsureSlaveDbConnectedAsync())
+            return;
+
+        try
+        {
+            await _slaveDbService!.DeleteListenerEnvironmentAsync(environment.Id);
+            ListenerEnvironments.Remove(environment);
+            if (ReferenceEquals(SelectedListenerEnvironment, environment))
+                SetSelectedListenerEnvironmentSilently(ListenerEnvironments.FirstOrDefault());
+            SlaveDbStatusText = $"监听环境已删除：{environment.Name}";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"删除监听环境失败：{ex.Message}", ex);
+            ThemedMessageBox.Show($"删除监听环境失败：\n{ex.Message}", "错误",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     // ----------------------------------------------------------------
@@ -547,6 +691,7 @@ public partial class SlaveViewModel : ObservableObject
                 var tcpSvc = _services.GetRequiredService<TcpSlaveService>();
                 tcpSvc.ListenAddress = config.ListenAddress;
                 tcpSvc.Port          = config.Port;
+                tcpSvc.FunctionCode  = NormalizeListenerFunctionCode(config.FunctionCode);
                 tcpSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
                 svc = tcpSvc;
             }
@@ -555,6 +700,7 @@ public partial class SlaveViewModel : ObservableObject
                 var rtuSvc = _services.GetRequiredService<RtuSlaveService>();
                 rtuSvc.PortName  = config.ComPort;
                 rtuSvc.BaudRate  = config.BaudRate;
+                rtuSvc.FunctionCode = NormalizeListenerFunctionCode(config.FunctionCode);
                 rtuSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
                 svc = rtuSvc;
             }
@@ -742,6 +888,7 @@ public partial class SlaveViewModel : ObservableObject
             SlaveDbStatusText  = "数据库已连接";
             LogSys("从站协议 DB connected");
             await LoadProtocolDevicesFromDbAsync();
+            await LoadListenerEnvironmentsAsync();
         }
         catch (Exception ex)
         {
@@ -794,6 +941,78 @@ public partial class SlaveViewModel : ObservableObject
         }
     }
 
+    private async Task LoadListenerEnvironmentsAsync(int selectId = 0)
+    {
+        if (_slaveDbService == null) return;
+
+        try
+        {
+            var selectedId = selectId > 0 ? selectId : SelectedListenerEnvironment?.Id ?? 0;
+            var environments = await _slaveDbService.GetListenerEnvironmentsAsync();
+
+            ListenerEnvironments.Clear();
+            foreach (var environment in environments)
+                ListenerEnvironments.Add(environment);
+
+            SetSelectedListenerEnvironmentSilently(selectedId > 0
+                ? ListenerEnvironments.FirstOrDefault(e => e.Id == selectedId)
+                : null);
+
+            if (environments.Count > 0)
+                LogSys($"Loaded {environments.Count} listener environments from DB");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"加载监听环境失败：{ex.Message}", ex);
+        }
+    }
+
+    private void SetSelectedListenerEnvironmentSilently(SlaveListenerEnvironment? environment)
+    {
+        _suppressListenerEnvironmentSelectionChanged = true;
+        try
+        {
+            SelectedListenerEnvironment = environment;
+        }
+        finally
+        {
+            _suppressListenerEnvironmentSelectionChanged = false;
+        }
+    }
+
+    private void ClearSelectedListenerEnvironmentForManualChange()
+    {
+        if (_isApplyingListenerEnvironment || SelectedListenerEnvironment == null)
+            return;
+
+        SetSelectedListenerEnvironmentSilently(null);
+    }
+
+    private async Task<bool> EnsureSlaveDbConnectedAsync()
+    {
+        if (_slaveDbService != null && IsSlaveDbConnected)
+            return true;
+
+        try
+        {
+            SlaveDbStatusText = "连接中…";
+            var svc = new SlaveProtocolDbService(DefaultDbCs);
+            await svc.InitializeAsync();
+            _slaveDbService = svc;
+            IsSlaveDbConnected = true;
+            SlaveDbStatusText = "数据库已连接";
+            await LoadListenerEnvironmentsAsync();
+        }
+        catch (Exception ex)
+        {
+            IsSlaveDbConnected = false;
+            SlaveDbStatusText = $"连接失败：{ex.Message}";
+            AppLogger.Error($"从站协议 DB 连接失败：{ex.Message}", ex);
+        }
+
+        return _slaveDbService != null && IsSlaveDbConnected;
+    }
+
     /// <summary>创建协议导入设备 ViewModel，并根据参数决定是否添加监听端点和持久化</summary>
     private async Task<ImportedDeviceViewModel> AddProtocolDeviceAsync(
         SlaveDeviceConfig        config,
@@ -834,6 +1053,7 @@ public partial class SlaveViewModel : ObservableObject
                 ComPort       = config.PortName,
                 BaudRate      = config.BaudRate,
                 SlaveId       = config.SlaveId,
+                FunctionCode  = 3,
                 DbId          = config.Id,
                 IsEnabled     = true,
                 BoundDeviceKey = config.Id > 0 ? BuildImportedDeviceKey(config.Id) : null,
@@ -1274,7 +1494,7 @@ public partial class SlaveViewModel : ObservableObject
         try
         {
             if (listener?.Service is IRegisterSnapshotSlaveService snapshotService)
-                return snapshotService.ReadHoldingRegisters(addr, qty);
+                return snapshotService.ReadSnapshotValues(addr, qty);
 
             return qty > 0 ? _bank.ReadRange(addr, qty) : [];
         }
@@ -1611,7 +1831,8 @@ public partial class SlaveViewModel : ObservableObject
             return;
 
         var values = BuildListenerRegisterSnapshot(listener);
-        snapshotService.ReplaceHoldingRegisters(values);
+        snapshotService.FunctionCode = NormalizeListenerFunctionCode(listener.FunctionCode);
+        snapshotService.ReplaceSnapshotValues(values);
     }
 
     private IReadOnlyDictionary<int, ushort> BuildListenerRegisterSnapshot(SlaveListenerConfig listener)
@@ -1996,6 +2217,39 @@ public partial class SlaveViewModel : ObservableObject
             IsEnabled = true
         };
 
+    private List<SlaveListenerEnvironmentItem> BuildListenerEnvironmentItems()
+        => Listeners
+            .Select((listener, index) => new SlaveListenerEnvironmentItem
+            {
+                SortOrder = index,
+                IsEnabled = listener.IsEnabled,
+                BoundDeviceKey = listener.BoundDeviceKey,
+                ListenerDbId = listener.DbId,
+                Protocol = (int)listener.Protocol,
+                ListenAddress = string.IsNullOrWhiteSpace(listener.ListenAddress) ? "0.0.0.0" : listener.ListenAddress,
+                Port = listener.Port,
+                ComPort = listener.ComPort ?? string.Empty,
+                BaudRate = listener.BaudRate,
+                SlaveId = listener.SlaveId,
+                FunctionCode = NormalizeListenerFunctionCode(listener.FunctionCode)
+            })
+            .ToList();
+
+    private static SlaveListenerConfig CreateListenerFromEnvironmentItem(SlaveListenerEnvironmentItem item)
+        => new()
+        {
+            IsEnabled = item.IsEnabled,
+            BoundDeviceKey = item.BoundDeviceKey,
+            DbId = item.ListenerDbId,
+            Protocol = Enum.IsDefined(typeof(ProtocolType), item.Protocol) ? (ProtocolType)item.Protocol : ProtocolType.Tcp,
+            ListenAddress = string.IsNullOrWhiteSpace(item.ListenAddress) ? "0.0.0.0" : item.ListenAddress,
+            Port = item.Port <= 0 ? 502 : item.Port,
+            ComPort = item.ComPort ?? string.Empty,
+            BaudRate = item.BaudRate <= 0 ? 9600 : item.BaudRate,
+            SlaveId = item.SlaveId == 0 ? (byte)1 : item.SlaveId,
+            FunctionCode = NormalizeListenerFunctionCode(item.FunctionCode)
+        };
+
     private static SlaveListenerConfig CreateListenerFromDeviceConfig(SlaveDeviceConfig cfg)
         => new()
         {
@@ -2005,10 +2259,14 @@ public partial class SlaveViewModel : ObservableObject
             ComPort = cfg.PortName,
             BaudRate = cfg.BaudRate,
             SlaveId = cfg.SlaveId,
+            FunctionCode = 3,
             DbId = cfg.Id,
             IsEnabled = true,
             BoundDeviceKey = cfg.Id > 0 ? BuildImportedDeviceKey(cfg.Id) : null
         };
+
+    private static byte NormalizeListenerFunctionCode(int functionCode)
+        => functionCode is 1 or 2 or 3 or 4 ? (byte)functionCode : (byte)3;
 
     private static SlaveDeviceConfig CloneDeviceConfig(SlaveDeviceConfig cfg, int id)
         => new()
@@ -2036,4 +2294,3 @@ public partial class SlaveViewModel : ObservableObject
     private bool HasAnyActiveSimulationDevice()
         => Listeners.Any(l => ResolveBoundDevice(l) is not null) || IsInspectorBypassEnabled();
 }
-

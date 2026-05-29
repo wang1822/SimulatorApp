@@ -33,7 +33,9 @@ public interface ISlaveService : IDisposable
 /// </summary>
 public interface IRegisterSnapshotSlaveService
 {
-    void ReplaceHoldingRegisters(IReadOnlyDictionary<int, ushort> values);
+    byte FunctionCode { get; set; }
 
-    ushort[] ReadHoldingRegisters(int startAddress, int count);
+    void ReplaceSnapshotValues(IReadOnlyDictionary<int, ushort> values);
+
+    ushort[] ReadSnapshotValues(int startAddress, int count);
 }

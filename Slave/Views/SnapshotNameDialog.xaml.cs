@@ -5,9 +5,11 @@ namespace SimulatorApp.Slave.Views;
 
 public partial class SnapshotNameDialog : Window
 {
-    public SnapshotNameDialog(string defaultName = "")
+    public SnapshotNameDialog(string defaultName = "", string title = "保存快照", string prompt = "请输入快照名称")
     {
         InitializeComponent();
+        Title = title;
+        PromptTextBlock.Text = prompt;
         NameBox.Text = defaultName;
         Loaded += (_, _) =>
         {

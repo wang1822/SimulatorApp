@@ -22,6 +22,7 @@ public class TcpSlaveService : ISlaveService, IRegisterSnapshotSlaveService
     private Task?                        _listenTask;
     private DataStore?                   _dataStore;
     private readonly HashSet<int>        _snapshotAddresses = new();
+    private readonly object              _dataStoreSyncRoot = new();
 
     public bool         IsRunning { get; private set; }
     public byte         SlaveId   { get; private set; }
@@ -29,6 +30,7 @@ public class TcpSlaveService : ISlaveService, IRegisterSnapshotSlaveService
 
     public string ListenAddress { get; set; } = "0.0.0.0";
     public int    Port          { get; set; } = 502;
+    public byte   FunctionCode  { get; set; } = 3;
     public Func<int, bool>? RegisterAddressFilter { get; set; }
 
     public event Action<byte, int, int, string>? OnRequest;
@@ -109,68 +111,117 @@ public class TcpSlaveService : ISlaveService, IRegisterSnapshotSlaveService
 
     private void SyncOneRegister(int address, ushort value)
     {
-        if (_dataStore != null
-            && (uint)address < 65536
-            && (RegisterAddressFilter?.Invoke(address) ?? true))
+        lock (_dataStoreSyncRoot)
         {
-            _dataStore.HoldingRegisters[(ushort)(address + 1)] = value;
-        }
-    }
-
-    public void ReplaceHoldingRegisters(IReadOnlyDictionary<int, ushort> values)
-    {
-        if (_dataStore == null) return;
-
-        foreach (var address in _snapshotAddresses.Except(values.Keys).ToList())
-        {
-            if ((uint)address < 65536)
-                _dataStore.HoldingRegisters[(ushort)(address + 1)] = 0;
-        }
-
-        _snapshotAddresses.Clear();
-        foreach (var (address, value) in values)
-        {
-            if ((uint)address < 65536)
+            if (_dataStore != null
+                && (uint)address < 65536
+                && (RegisterAddressFilter?.Invoke(address) ?? true))
             {
-                _dataStore.HoldingRegisters[(ushort)(address + 1)] = value;
-                _snapshotAddresses.Add(address);
+                SyncSnapshotValue(address, value);
             }
         }
     }
 
-    public ushort[] ReadHoldingRegisters(int startAddress, int count)
+    public void ReplaceSnapshotValues(IReadOnlyDictionary<int, ushort> values)
     {
-        if (_dataStore == null || count <= 0)
-            return [];
-
-        var result = new ushort[count];
-        for (var i = 0; i < count; i++)
+        lock (_dataStoreSyncRoot)
         {
-            var address = startAddress + i;
-            if ((uint)address < 65536)
-                result[i] = _dataStore.HoldingRegisters[(ushort)(address + 1)];
-        }
+            if (_dataStore == null) return;
 
-        return result;
+            foreach (var address in _snapshotAddresses.Except(values.Keys).ToList())
+            {
+                if ((uint)address < 65536)
+                    SyncSnapshotValue(address, 0);
+            }
+
+            _snapshotAddresses.Clear();
+            foreach (var (address, value) in values)
+            {
+                if ((uint)address < 65536)
+                {
+                    SyncSnapshotValue(address, value);
+                    _snapshotAddresses.Add(address);
+                }
+            }
+        }
     }
 
-    /// <summary>将 RegisterBank 当前值同步到 NModbus4 DataStore（HoldingRegisters 从索引 1 开始）</summary>
+    public ushort[] ReadSnapshotValues(int startAddress, int count)
+    {
+        lock (_dataStoreSyncRoot)
+        {
+            if (_dataStore == null || count <= 0)
+                return [];
+
+            var result = new ushort[count];
+            for (var i = 0; i < count; i++)
+            {
+                var address = startAddress + i;
+                if ((uint)address < 65536)
+                    result[i] = ReadSnapshotValue(address);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>将 RegisterBank 当前值同步到 NModbus4 DataStore（DataStore 从索引 1 开始）</summary>
     private void SyncBankToDataStore()
     {
-        if (_dataStore == null) return;
-        for (int i = 0; i < 65535; i++)
+        lock (_dataStoreSyncRoot)
         {
-            if (RegisterAddressFilter?.Invoke(i) ?? true)
-                _dataStore.HoldingRegisters[(ushort)(i + 1)] = _bank.Read(i);
+            if (_dataStore == null) return;
+            for (int i = 0; i < 65535; i++)
+            {
+                if (RegisterAddressFilter?.Invoke(i) ?? true)
+                    SyncSnapshotValue(i, _bank.Read(i));
+            }
         }
+    }
+
+    private void SyncSnapshotValue(int address, ushort value)
+    {
+        var dataStoreIndex = (ushort)(address + 1);
+        switch (FunctionCode)
+        {
+            case 1:
+                _dataStore!.CoilDiscretes[dataStoreIndex] = value != 0;
+                break;
+            case 2:
+                _dataStore!.InputDiscretes[dataStoreIndex] = value != 0;
+                break;
+            case 4:
+                _dataStore!.InputRegisters[dataStoreIndex] = value;
+                break;
+            default:
+                _dataStore!.HoldingRegisters[dataStoreIndex] = value;
+                break;
+        }
+    }
+
+    private ushort ReadSnapshotValue(int address)
+    {
+        var dataStoreIndex = (ushort)(address + 1);
+        return FunctionCode switch
+        {
+            1 => _dataStore!.CoilDiscretes[dataStoreIndex] ? (ushort)1 : (ushort)0,
+            2 => _dataStore!.InputDiscretes[dataStoreIndex] ? (ushort)1 : (ushort)0,
+            4 => _dataStore!.InputRegisters[dataStoreIndex],
+            _ => _dataStore!.HoldingRegisters[dataStoreIndex]
+        };
     }
 
     private void OnDataStoreRead(DataStoreEventArgs e)
     {
-        int count = e.ModbusDataType == ModbusDataType.HoldingRegister
-            ? e.Data.B.Count
-            : e.Data.A.Count;
-        OnRequest?.Invoke(3, e.StartAddress, count, $"{ListenAddress}:{Port}");
+        byte functionCode = e.ModbusDataType switch
+        {
+            ModbusDataType.Coil => 1,
+            ModbusDataType.Input => 2,
+            ModbusDataType.InputRegister => 4,
+            _ => 3
+        };
+        int count = functionCode is 3 or 4 ? e.Data.B.Count : e.Data.A.Count;
+        OnRequest?.Invoke(functionCode, e.StartAddress, count, $"{ListenAddress}:{Port}");
     }
 
     private void OnDataStoreWritten(DataStoreEventArgs e)
