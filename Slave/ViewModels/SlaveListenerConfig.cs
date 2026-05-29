@@ -34,6 +34,7 @@ public partial class SlaveListenerConfig : ObservableObject
 
     // 公共
     [ObservableProperty] private byte _slaveId = 1;
+    [ObservableProperty] private int  _functionCode = 3;
 
     // ---- 协议辅助属性 ----
 
@@ -41,6 +42,7 @@ public partial class SlaveListenerConfig : ObservableObject
     public bool IsRtuMode => Protocol == ProtocolType.Rtu;
 
     public IReadOnlyList<string> ProtocolNames { get; } = ["TCP", "RTU"];
+    public IReadOnlyList<int> FunctionCodeOptions { get; } = [1, 2, 3, 4];
     public ObservableCollection<DeviceProtocolOption> AvailableDeviceProtocols { get; } = new();
 
     public int ProtocolIndex

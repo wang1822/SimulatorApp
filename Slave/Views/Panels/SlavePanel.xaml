@@ -185,6 +185,21 @@
                                 Command="{Binding AddListenerCommand}"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 ToolTip="添加一条新的监听端点配置"/>
+                        <Button Content="保存监听环境" Height="26" Padding="8,0" Margin="0,0,6,0"
+                                Command="{Binding SaveListenerEnvironmentCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                ToolTip="保存当前所有监听配置"/>
+                        <ComboBox Width="150" Height="26" Margin="0,0,6,0"
+                                  ItemsSource="{Binding ListenerEnvironments}"
+                                  SelectedItem="{Binding SelectedListenerEnvironment, Mode=TwoWay}"
+                                  DisplayMemberPath="Name"
+                                  Style="{StaticResource DataComboBoxStyle}"
+                                  ToolTip="选择后立即切换监听环境"/>
+                        <Button Content="×" Width="26" Height="26" Padding="0" FontSize="13" Margin="0,0,6,0"
+                                Command="{Binding DeleteListenerEnvironmentCommand}"
+                                CommandParameter="{Binding SelectedListenerEnvironment}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                ToolTip="删除选中的监听环境（需要密码）"/>
                         <Button Content="▶ 启动全部" Height="26" Padding="8,0" Margin="0,0,6,0"
                                 Command="{Binding StartAllListenersCommand}"
                                 Style="{StaticResource PrimaryButtonStyle}"
@@ -193,10 +208,14 @@
                                 Command="{Binding StopAllListenersCommand}"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 ToolTip="停止所有正在运行的监听"/>
-                        <Button Content="报文抓取" Height="26" Padding="8,0"
+                        <Button Content="报文抓取" Height="26" Padding="8,0" Margin="0,0,6,0"
                                 Command="{Binding OpenPacketCaptureCommand}"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 ToolTip="打开从站报文抓取窗口"/>
+                        <Button Content="清除监听" Height="26" Padding="8,0"
+                                Command="{Binding ClearListenersCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                ToolTip="移除所有监听配置并恢复默认监听"/>
                     </WrapPanel>
                 </DockPanel>
 
@@ -301,6 +320,15 @@
                                                      Text="{Binding SlaveId, UpdateSourceTrigger=PropertyChanged}"
                                                      Style="{StaticResource DataTextBoxStyle}"
                                                      Margin="0,0,6,0"/>
+                                            <TextBlock Text="FC:" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="11" Margin="0,0,3,0"/>
+                                            <ComboBox Width="46" Height="22"
+                                                      ItemsSource="{Binding FunctionCodeOptions}"
+                                                      SelectedItem="{Binding FunctionCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      Style="{StaticResource DataComboBoxStyle}"
+                                                      Margin="0,0,6,0"
+                                                      ToolTip="监听功能码：01/02/03/04"/>
                                             <ComboBox Width="138" Height="22"
                                                       ItemsSource="{Binding AvailableDeviceProtocols}"
                                                       SelectedValuePath="Key" DisplayMemberPath="DisplayName"
