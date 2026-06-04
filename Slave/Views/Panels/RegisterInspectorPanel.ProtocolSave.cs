@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -14,6 +15,7 @@ public partial class RegisterInspectorPanel
 {
     public BulkObservableCollection<InlineProtocolDraftRow> ProtocolDraftRows { get; } = new();
     private RegisterInspectorViewModel? _boundInspectorVm;
+    private readonly HashSet<InspectorRow> _valueTrackedInspectorRows = new();
     private int _editingImportedDeviceId;
 
     private void InlineProtocolDraftGrid_Loaded(object sender, RoutedEventArgs e)
@@ -25,6 +27,7 @@ public partial class RegisterInspectorPanel
     {
         if (DataContext is not RegisterInspectorViewModel inspectorVm)
         {
+            UnbindProtocolDraftRowsFromInspector();
             ProtocolDraftRows.Clear();
             return;
         }
@@ -36,6 +39,7 @@ public partial class RegisterInspectorPanel
                 _boundInspectorVm.Rows.CollectionChanged -= InspectorRows_CollectionChanged;
             }
 
+            UnsubscribeInspectorRowValueChanges();
             _boundInspectorVm = inspectorVm;
             _boundInspectorVm.Rows.CollectionChanged += InspectorRows_CollectionChanged;
         }
@@ -64,6 +68,7 @@ public partial class RegisterInspectorPanel
             if (oldRows.TryGetValue(inspectorRow.Address, out var existing))
             {
                 existing.Address = inspectorRow.Address;
+                existing.Value = inspectorRow.Value;
                 rebuilt.Add(existing);
                 continue;
             }
@@ -71,11 +76,84 @@ public partial class RegisterInspectorPanel
             rebuilt.Add(new InlineProtocolDraftRow
             {
                 Address = inspectorRow.Address,
+                Value = inspectorRow.Value,
                 Note = inspectorRow.Note ?? string.Empty
             });
         }
 
+        SyncInspectorRowValueSubscriptions();
         ProtocolDraftRows.ReplaceWith(rebuilt);
+    }
+
+    private void InspectorRow_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(InspectorRow.Value) || sender is not InspectorRow inspectorRow)
+        {
+            return;
+        }
+
+        var draftRow = ProtocolDraftRows.FirstOrDefault(x => x.Address == inspectorRow.Address);
+        if (draftRow is not null)
+        {
+            draftRow.Value = inspectorRow.Value;
+        }
+
+        SyncVisibleCurrentValueText(inspectorRow.Address, inspectorRow.Value);
+    }
+
+    public string? GetDraftChineseNameForAddress(int address)
+        => ProtocolDraftRows.FirstOrDefault(x => x.Address == address)?.ChineseName;
+
+    public void MarkExternalWrite(int address, ushort value)
+    {
+        var draftRow = ProtocolDraftRows.FirstOrDefault(x => x.Address == address);
+        if (draftRow is not null)
+        {
+            draftRow.Value = value;
+            draftRow.IsExternallyWritten = true;
+        }
+    }
+
+    public void ClearExternalWriteHighlights()
+    {
+        foreach (var row in ProtocolDraftRows)
+            row.IsExternallyWritten = false;
+    }
+
+    private void SyncInspectorRowValueSubscriptions()
+    {
+        UnsubscribeInspectorRowValueChanges();
+        if (_boundInspectorVm is null)
+        {
+            return;
+        }
+
+        foreach (var row in _boundInspectorVm.Rows)
+        {
+            row.PropertyChanged += InspectorRow_PropertyChanged;
+            _valueTrackedInspectorRows.Add(row);
+        }
+    }
+
+    private void UnsubscribeInspectorRowValueChanges()
+    {
+        foreach (var row in _valueTrackedInspectorRows)
+        {
+            row.PropertyChanged -= InspectorRow_PropertyChanged;
+        }
+
+        _valueTrackedInspectorRows.Clear();
+    }
+
+    private void UnbindProtocolDraftRowsFromInspector()
+    {
+        if (_boundInspectorVm is not null)
+        {
+            _boundInspectorVm.Rows.CollectionChanged -= InspectorRows_CollectionChanged;
+        }
+
+        UnsubscribeInspectorRowValueChanges();
+        _boundInspectorVm = null;
     }
 
     public void LoadImportedDeviceForEdit(ImportedDeviceViewModel imported)
@@ -97,6 +175,7 @@ public partial class RegisterInspectorPanel
             .Select(r => new InlineProtocolDraftRow
             {
                 Address = r.Address,
+                Value = r.CurrentValueRaw,
                 ChineseName = r.ChineseName ?? string.Empty,
                 EnglishName = r.EnglishName ?? string.Empty,
                 Unit = r.Unit ?? string.Empty,
@@ -274,17 +353,75 @@ public partial class RegisterInspectorPanel
     }
 }
 
-public sealed class InlineProtocolDraftRow
+public sealed class InlineProtocolDraftRow : INotifyPropertyChanged
 {
-    public int Address { get; set; }
+    private int _address;
+    private ushort _value;
+    private string _chineseName = string.Empty;
+    private string _englishName = string.Empty;
+    private string _unit = string.Empty;
+    private string _range = string.Empty;
+    private string _note = string.Empty;
+    private bool _isExternallyWritten;
 
-    public string ChineseName { get; set; } = string.Empty;
+    public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string EnglishName { get; set; } = string.Empty;
+    public int Address
+    {
+        get => _address;
+        set => SetProperty(ref _address, value, nameof(Address));
+    }
 
-    public string Unit { get; set; } = string.Empty;
+    public ushort Value
+    {
+        get => _value;
+        set => SetProperty(ref _value, value, nameof(Value));
+    }
 
-    public string Range { get; set; } = string.Empty;
+    public string ChineseName
+    {
+        get => _chineseName;
+        set => SetProperty(ref _chineseName, value ?? string.Empty, nameof(ChineseName));
+    }
 
-    public string Note { get; set; } = string.Empty;
+    public string EnglishName
+    {
+        get => _englishName;
+        set => SetProperty(ref _englishName, value ?? string.Empty, nameof(EnglishName));
+    }
+
+    public string Unit
+    {
+        get => _unit;
+        set => SetProperty(ref _unit, value ?? string.Empty, nameof(Unit));
+    }
+
+    public string Range
+    {
+        get => _range;
+        set => SetProperty(ref _range, value ?? string.Empty, nameof(Range));
+    }
+
+    public string Note
+    {
+        get => _note;
+        set => SetProperty(ref _note, value ?? string.Empty, nameof(Note));
+    }
+
+    public bool IsExternallyWritten
+    {
+        get => _isExternallyWritten;
+        set => SetProperty(ref _isExternallyWritten, value, nameof(IsExternallyWritten));
+    }
+
+    private void SetProperty<T>(ref T field, T value, string propertyName)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return;
+        }
+
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 }

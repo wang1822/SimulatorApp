@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
@@ -38,6 +38,9 @@ public partial class SlaveViewModel : ObservableObject
     private DispatcherTimer?          _simTimer;
     private DispatcherTimer?          _tcpConnTimer;
     private int                       _runningCount;
+    private ExternalWriteLogWindow?   _externalWriteLogWindow;
+    private const int                 MaxExternalWriteLogLines = 500;
+    private readonly List<string>     _externalWriteLogLines = new();
     private readonly Dictionary<SlaveListenerConfig, Action<byte, int, int, string>> _requestHandlers = new();
     private readonly Dictionary<SlaveListenerConfig, Dictionary<string, TcpState>> _tcpPeerSnapshots = new();
     private readonly Dictionary<SlaveListenerConfig, DateTime> _tcpNoClientLogAt = new();
@@ -187,6 +190,7 @@ public partial class SlaveViewModel : ObservableObject
     {
         _services = services;
         _bank     = services.GetRequiredService<RegisterBank>();
+        _bank.OnExternalRegistersWritten += OnExternalRegistersWritten;
         _packetCaptureVm.HasRunningListener = () => IsRunning;
 
         PcsVm       = pcsVm;
@@ -243,6 +247,141 @@ public partial class SlaveViewModel : ObservableObject
         AddListenerCommand = new RelayCommand(AddListener);
         ListenerEnvironments.CollectionChanged += (_, _) =>
             OnPropertyChanged(nameof(HasListenerEnvironments));
+    }
+
+    private void OnExternalRegistersWritten(IReadOnlyList<ExternalRegisterWrite> writes)
+    {
+        if (writes.Count == 0)
+            return;
+
+        _ = Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            ClearExternalWriteHighlights();
+
+            foreach (var write in writes)
+                MarkExternalWriteInUi(write.Address, write.Value);
+
+            var lines = writes
+                .Select(write => $"{ResolveExternalWriteName(write)}：{write.Value}")
+                .ToList();
+
+            AppendExternalWriteLog(lines);
+            ShowExternalWriteLog();
+        });
+    }
+
+    private void AppendExternalWriteLog(IReadOnlyList<string> lines)
+    {
+        if (lines.Count == 0)
+            return;
+
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        foreach (var line in lines)
+            _externalWriteLogLines.Add($"[{timestamp}] {line}");
+
+        if (_externalWriteLogLines.Count > MaxExternalWriteLogLines)
+            _externalWriteLogLines.RemoveRange(0, _externalWriteLogLines.Count - MaxExternalWriteLogLines);
+    }
+
+    private void ShowExternalWriteLog()
+    {
+        if (_externalWriteLogWindow is null)
+        {
+            _externalWriteLogWindow = new ExternalWriteLogWindow
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            _externalWriteLogWindow.ClearRequested += ClearExternalWriteLog;
+            _externalWriteLogWindow.Closed += (_, _) => _externalWriteLogWindow = null;
+        }
+
+        _externalWriteLogWindow.SetLines(_externalWriteLogLines);
+        _externalWriteLogWindow.Show();
+        _externalWriteLogWindow.Activate();
+    }
+
+    private void ClearExternalWriteLog()
+    {
+        _externalWriteLogLines.Clear();
+        _externalWriteLogWindow?.SetLines(_externalWriteLogLines);
+    }
+
+    [RelayCommand]
+    public void OpenExternalWriteLog()
+    {
+        ShowExternalWriteLog();
+    }
+
+    private string ResolveExternalWriteName(ExternalRegisterWrite write)
+    {
+        var address = write.Address;
+        var boundDevice = ResolveBoundDeviceByKey(write.DeviceKey);
+        if (boundDevice is ImportedDeviceViewModel boundImported)
+        {
+            var name = boundImported.GetChineseNameForAddress(address);
+            if (!string.IsNullOrWhiteSpace(name))
+                return name;
+
+            return $"地址 {address}";
+        }
+
+        if (SelectedDevice is RegisterInspectorViewModel && SelectedDevicePanel is RegisterInspectorPanel inspectorPanel)
+        {
+            var draftName = inspectorPanel.GetDraftChineseNameForAddress(address);
+            if (!string.IsNullOrWhiteSpace(draftName))
+                return draftName;
+        }
+
+        foreach (var imported in ImportedDevices)
+        {
+            var name = imported.GetChineseNameForAddress(address);
+            if (!string.IsNullOrWhiteSpace(name))
+                return name;
+        }
+
+        return $"地址 {address}";
+    }
+
+    private DeviceViewModelBase? ResolveBoundDeviceByKey(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return null;
+
+        if (key.StartsWith(BuiltinDeviceKeyPrefix, StringComparison.Ordinal))
+        {
+            var indexText = key[BuiltinDeviceKeyPrefix.Length..];
+            return int.TryParse(indexText, out var index) && index >= 0 && index < BuiltinDevices.Count
+                ? BuiltinDevices[index]
+                : null;
+        }
+
+        if (key.StartsWith(ImportedDeviceKeyPrefix, StringComparison.Ordinal))
+        {
+            var idText = key[ImportedDeviceKeyPrefix.Length..];
+            return int.TryParse(idText, out var dbId)
+                ? ImportedDevices.FirstOrDefault(v => v.DbId == dbId)
+                : null;
+        }
+
+        return null;
+    }
+
+    private void MarkExternalWriteInUi(int address, ushort value)
+    {
+        if (SelectedDevice is RegisterInspectorViewModel && SelectedDevicePanel is RegisterInspectorPanel inspectorPanel)
+            inspectorPanel.MarkExternalWrite(address, value);
+
+        foreach (var imported in ImportedDevices)
+            imported.MarkExternalWrite(address, value);
+    }
+
+    private void ClearExternalWriteHighlights()
+    {
+        if (SelectedDevice is RegisterInspectorViewModel && SelectedDevicePanel is RegisterInspectorPanel inspectorPanel)
+            inspectorPanel.ClearExternalWriteHighlights();
+
+        foreach (var imported in ImportedDevices)
+            imported.ClearExternalWriteHighlights();
     }
 
     private void RegisterDevice(DeviceViewModelBase vm, Func<DeviceViewModelBase, UserControl> panelFactory)
@@ -693,6 +832,7 @@ public partial class SlaveViewModel : ObservableObject
                 tcpSvc.Port          = config.Port;
                 tcpSvc.FunctionCode  = NormalizeListenerFunctionCode(config.FunctionCode);
                 tcpSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
+                tcpSvc.BoundDeviceKey = config.BoundDeviceKey;
                 svc = tcpSvc;
             }
             else
@@ -702,6 +842,7 @@ public partial class SlaveViewModel : ObservableObject
                 rtuSvc.BaudRate  = config.BaudRate;
                 rtuSvc.FunctionCode = NormalizeListenerFunctionCode(config.FunctionCode);
                 rtuSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
+                rtuSvc.BoundDeviceKey = config.BoundDeviceKey;
                 svc = rtuSvc;
             }
 
@@ -1421,13 +1562,17 @@ public partial class SlaveViewModel : ObservableObject
         if (!RequestMatchesActiveDevice(listener, addr, qty))
             return;
 
-        PushListenerSnapshot(listener);
+        if (!IsWriteFunctionCode(fc))
+            PushListenerSnapshot(listener);
         RequestCount++;
         var nowUtc = DateTime.UtcNow;
         _lastRequestAt[listener] = nowUtc;
         MarkDeviceRequestActivity(listener, addr, qty, nowUtc);
         CaptureRequestFrames(listener, fc, addr, qty, sourceText);
     }
+
+    private static bool IsWriteFunctionCode(byte fc)
+        => fc is 5 or 6 or 15 or 16;
 
     private void CaptureRequestFrames(SlaveListenerConfig listener, byte fc, int addr, int qty, string source)
     {

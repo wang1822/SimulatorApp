@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SimulatorApp.Master.Services;
 using SimulatorApp.Shared.Logging;
@@ -211,12 +211,52 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
         _randomGenerateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _randomGenerateTimer.Tick += (_, _) => GenerateRandomOnce();
         PropertyChanged += ImportedDeviceViewModel_PropertyChanged;
+        _bank.OnRegisterWritten += OnRegisterWritten;
 
         FilteredRows = CollectionViewSource.GetDefaultView(Rows);
         FilteredRows.Filter = FilterRow;
     }
 
+    private void OnRegisterWritten(int address, ushort value)
+    {
+        var row = Rows.FirstOrDefault(r => !r.IsPending && r.Address == address);
+        if (row is null)
+            return;
+
+        void UpdateRow()
+        {
+            if (row.CurrentValueRaw == value)
+                return;
+
+            row.ApplyExternalValue(value);
+        }
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+            dispatcher.BeginInvoke((Action)UpdateRow);
+        else
+            UpdateRow();
+    }
+
     /// <summary>工厂：统一创建行并注入三个 DB 回调</summary>
+    public string? GetChineseNameForAddress(int address)
+        => Rows.FirstOrDefault(r => !r.IsPending && r.Address == address)?.ChineseName;
+
+    public void MarkExternalWrite(int address, ushort value)
+    {
+        var row = Rows.FirstOrDefault(r => !r.IsPending && r.Address == address);
+        if (row is null)
+            return;
+
+        row.ApplyExternalValue(value, markExternalWrite: true);
+    }
+
+    public void ClearExternalWriteHighlights()
+    {
+        foreach (var row in Rows)
+            row.IsExternallyWritten = false;
+    }
+
     private ImportedRegisterRow MakeRow(
         string chineseName, string englishName, int address,
         string readWrite, string range, string unit, string note)
@@ -568,7 +608,7 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
 /// <summary>
 /// 显示模式：无符号十进制 / 有符号十进制 / 二进制 / 十六进制 / 字符串
 /// </summary>
-public enum RegisterValueDisplayMode { UnsignedDecimal, SignedDecimal, Binary, Hexadecimal, String, FloatABCD }
+public enum RegisterValueDisplayMode { UnsignedDecimal, SignedDecimal, Binary, Hexadecimal, String, FloatABCD, FloatCDAB, DoubleABCDEFGH }
 
 /// <summary>单条导入寄存器行（支持读写当前值、内联编辑名称）</summary>
 public sealed partial class ImportedRegisterRow : ObservableObject
@@ -603,6 +643,8 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         OnPropertyChanged(nameof(IsHexMode));
         OnPropertyChanged(nameof(IsStringMode));
         OnPropertyChanged(nameof(IsFloatABCDMode));
+        OnPropertyChanged(nameof(IsFloatCDABMode));
+        OnPropertyChanged(nameof(IsDoubleABCDEFGHMode));
         OnPropertyChanged(nameof(CurrentValueDisplay));
         NotifyFloatPeerStateChanged();
     }
@@ -613,15 +655,21 @@ public sealed partial class ImportedRegisterRow : ObservableObject
     public bool IsHexMode             => DisplayMode == RegisterValueDisplayMode.Hexadecimal;
     public bool IsStringMode          => DisplayMode == RegisterValueDisplayMode.String;
     public bool IsFloatABCDMode       => DisplayMode == RegisterValueDisplayMode.FloatABCD;
+    public bool IsFloatCDABMode       => DisplayMode == RegisterValueDisplayMode.FloatCDAB;
+    public bool IsDoubleABCDEFGHMode  => DisplayMode == RegisterValueDisplayMode.DoubleABCDEFGH;
 
     // ── 当前寄存器原始值（定时从 RegisterBank 刷新）────────────────
     [ObservableProperty]
     private ushort _currentValueRaw;
 
+    [ObservableProperty]
+    private bool _isExternallyWritten;
+
     partial void OnCurrentValueRawChanged(ushort value)
     {
         OnPropertyChanged(nameof(CurrentValueDisplay));
-        _rowResolver?.Invoke(Address - 1)?.OnPropertyChanged(nameof(CurrentValueDisplay));
+        for (var offset = 1; offset <= 3; offset++)
+            _rowResolver?.Invoke(Address - offset)?.OnPropertyChanged(nameof(CurrentValueDisplay));
     }
 
     /// <summary>按显示模式格式化的当前值字符串</summary>
@@ -632,6 +680,8 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         RegisterValueDisplayMode.Hexadecimal   => $"0x{CurrentValueRaw:X4}",
         RegisterValueDisplayMode.String        => FormatRegisterString(CurrentValueRaw),
         RegisterValueDisplayMode.FloatABCD     => FormatFloatABCD(),
+        RegisterValueDisplayMode.FloatCDAB     => FormatFloatCDAB(),
+        RegisterValueDisplayMode.DoubleABCDEFGH => FormatDoubleABCDEFGH(),
         _ => CurrentValueRaw.ToString()
     };
 
@@ -661,17 +711,75 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         return BitConverter.ToSingle(bytes, 0).ToString("G9", CultureInfo.InvariantCulture);
     }
 
-    public bool IsFloatSecondWord => _rowResolver?.Invoke(Address - 1)?.DisplayMode == RegisterValueDisplayMode.FloatABCD;
+    private string FormatFloatCDAB()
+    {
+        var next = _rowResolver?.Invoke(Address + 1);
+        if (next == null) return string.Empty;
+
+        var bytes = new[]
+        {
+            (byte)(next.CurrentValueRaw >> 8),
+            (byte)(next.CurrentValueRaw & 0xFF),
+            (byte)(CurrentValueRaw >> 8),
+            (byte)(CurrentValueRaw & 0xFF)
+        };
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(bytes);
+        return BitConverter.ToSingle(bytes, 0).ToString("G9", CultureInfo.InvariantCulture);
+    }
+
+    private string FormatDoubleABCDEFGH()
+    {
+        var next1 = _rowResolver?.Invoke(Address + 1);
+        var next2 = _rowResolver?.Invoke(Address + 2);
+        var next3 = _rowResolver?.Invoke(Address + 3);
+        if (next1 == null || next2 == null || next3 == null) return string.Empty;
+
+        var bytes = new[]
+        {
+            (byte)(CurrentValueRaw >> 8),
+            (byte)(CurrentValueRaw & 0xFF),
+            (byte)(next1.CurrentValueRaw >> 8),
+            (byte)(next1.CurrentValueRaw & 0xFF),
+            (byte)(next2.CurrentValueRaw >> 8),
+            (byte)(next2.CurrentValueRaw & 0xFF),
+            (byte)(next3.CurrentValueRaw >> 8),
+            (byte)(next3.CurrentValueRaw & 0xFF)
+        };
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(bytes);
+        return BitConverter.ToDouble(bytes, 0).ToString("G17", CultureInfo.InvariantCulture);
+    }
+
+    public bool IsFloatSecondWord
+    {
+        get
+        {
+            var previousMode = _rowResolver?.Invoke(Address - 1)?.DisplayMode;
+            if (previousMode is RegisterValueDisplayMode.FloatABCD or RegisterValueDisplayMode.FloatCDAB)
+                return true;
+
+            for (var offset = 1; offset <= 3; offset++)
+            {
+                var row = _rowResolver?.Invoke(Address - offset);
+                if (row?.DisplayMode == RegisterValueDisplayMode.DoubleABCDEFGH)
+                    return true;
+            }
+
+            return false;
+        }
+    }
     public bool CanWriteCurrentValue => !IsPending && !IsFloatSecondWord;
     public string CurrentValueToolTip => IsFloatSecondWord
-        ? "上一地址为 Float AB CD，本地址作为低 16 位，禁止单独写入"
+        ? "上一地址为 Float/Double，本地址作为后续 16 位，禁止单独写入"
         : "双击编辑写入；右键切换显示模式";
 
     private void NotifyFloatPeerStateChanged()
     {
         OnPropertyChanged(nameof(CanWriteCurrentValue));
         OnPropertyChanged(nameof(CurrentValueToolTip));
-        _rowResolver?.Invoke(Address + 1)?.NotifyFloatSecondWordStateChanged();
+        for (var offset = 1; offset <= 3; offset++)
+            _rowResolver?.Invoke(Address + offset)?.NotifyFloatSecondWordStateChanged();
     }
 
     private void NotifyFloatSecondWordStateChanged()
@@ -752,6 +860,12 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         catch { /* 地址越界时忽略 */ }
     }
 
+    public void ApplyExternalValue(ushort val, bool markExternalWrite = false)
+    {
+        CurrentValueRaw = val;
+        IsExternallyWritten = markExternalWrite;
+    }
+
     /// <summary>右键菜单切换显示模式命令。</summary>
     [RelayCommand]
     public void SetDisplayMode(string? key)
@@ -759,7 +873,10 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         if (IsFloatSecondWord)
             return;
 
-        if (string.Equals(key, "float", StringComparison.Ordinal) && _rowResolver?.Invoke(Address + 1) == null)
+        if ((string.Equals(key, "float", StringComparison.Ordinal) || string.Equals(key, "float_cdab", StringComparison.Ordinal)) && _rowResolver?.Invoke(Address + 1) == null)
+            return;
+        if (string.Equals(key, "double", StringComparison.Ordinal)
+            && (_rowResolver?.Invoke(Address + 1) == null || _rowResolver?.Invoke(Address + 2) == null || _rowResolver?.Invoke(Address + 3) == null))
             return;
 
         DisplayMode = key switch
@@ -769,12 +886,20 @@ public sealed partial class ImportedRegisterRow : ObservableObject
             "hex" => RegisterValueDisplayMode.Hexadecimal,
             "str" => RegisterValueDisplayMode.String,
             "float" => RegisterValueDisplayMode.FloatABCD,
+            "float_cdab" => RegisterValueDisplayMode.FloatCDAB,
+            "double" => RegisterValueDisplayMode.DoubleABCDEFGH,
             _ => RegisterValueDisplayMode.UnsignedDecimal
         };
 
-        if (DisplayMode == RegisterValueDisplayMode.FloatABCD)
+        var occupiedWordCount = DisplayMode switch
         {
-            var next = _rowResolver?.Invoke(Address + 1);
+            RegisterValueDisplayMode.FloatABCD or RegisterValueDisplayMode.FloatCDAB => 2,
+            RegisterValueDisplayMode.DoubleABCDEFGH => 4,
+            _ => 1
+        };
+        for (var offset = 1; offset < occupiedWordCount; offset++)
+        {
+            var next = _rowResolver?.Invoke(Address + offset);
             if (next != null && next.DisplayMode != RegisterValueDisplayMode.UnsignedDecimal)
                 next.DisplayMode = RegisterValueDisplayMode.UnsignedDecimal;
         }
@@ -793,7 +918,28 @@ public sealed partial class ImportedRegisterRow : ObservableObject
             return false;
 
         ushort val;
-        if (DisplayMode == RegisterValueDisplayMode.FloatABCD)
+        if (DisplayMode == RegisterValueDisplayMode.DoubleABCDEFGH)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            var next1 = _rowResolver?.Invoke(Address + 1);
+            var next2 = _rowResolver?.Invoke(Address + 2);
+            var next3 = _rowResolver?.Invoke(Address + 3);
+            if (next1 == null || next2 == null || next3 == null) return false;
+            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out var doubleValue)
+                && !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out doubleValue))
+                return false;
+
+            var bytes = BitConverter.GetBytes(doubleValue);
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(bytes);
+
+            WriteValue((ushort)((bytes[0] << 8) | bytes[1]));
+            next1.WriteValue((ushort)((bytes[2] << 8) | bytes[3]));
+            next2.WriteValue((ushort)((bytes[4] << 8) | bytes[5]));
+            next3.WriteValue((ushort)((bytes[6] << 8) | bytes[7]));
+            return true;
+        }
+        if (DisplayMode is RegisterValueDisplayMode.FloatABCD or RegisterValueDisplayMode.FloatCDAB)
         {
             if (string.IsNullOrEmpty(text)) return false;
             var next = _rowResolver?.Invoke(Address + 1);
@@ -806,8 +952,12 @@ public sealed partial class ImportedRegisterRow : ObservableObject
             if (BitConverter.IsLittleEndian)
                 Array.Reverse(bytes);
 
-            val = (ushort)((bytes[0] << 8) | bytes[1]);
-            var nextVal = (ushort)((bytes[2] << 8) | bytes[3]);
+            val = DisplayMode == RegisterValueDisplayMode.FloatCDAB
+                ? (ushort)((bytes[2] << 8) | bytes[3])
+                : (ushort)((bytes[0] << 8) | bytes[1]);
+            var nextVal = DisplayMode == RegisterValueDisplayMode.FloatCDAB
+                ? (ushort)((bytes[0] << 8) | bytes[1])
+                : (ushort)((bytes[2] << 8) | bytes[3]);
             WriteValue(val);
             next.WriteValue(nextVal);
             return true;
@@ -861,4 +1011,3 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         return true;
     }
 }
-

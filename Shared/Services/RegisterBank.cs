@@ -18,6 +18,7 @@ public class RegisterBank
     /// 从站服务订阅此事件，将变更同步到 NModbus4 DataStore。
     /// </summary>
     public event Action<int, ushort>? OnRegisterWritten;
+    public event Action<IReadOnlyList<ExternalRegisterWrite>>? OnExternalRegistersWritten;
 
     // ----------------------------------------------------------------
     // 基础读写
@@ -36,6 +37,40 @@ public class RegisterBank
         ValidateAddress(address);
         lock (_lock) { _regs[address] = value; }
         OnRegisterWritten?.Invoke(address, value);
+    }
+
+    public void WriteExternalRange(
+        int startAddress,
+        IReadOnlyList<ushort> values,
+        Func<int, bool>? addressFilter = null,
+        string? deviceKey = null,
+        string? source = null)
+    {
+        if (values == null || values.Count == 0) return;
+        ValidateAddress(startAddress);
+        ValidateAddress(startAddress + values.Count - 1);
+
+        var writes = new List<ExternalRegisterWrite>(values.Count);
+        lock (_lock)
+        {
+            for (var i = 0; i < values.Count; i++)
+            {
+                var address = startAddress + i;
+                if (addressFilter is not null && !addressFilter(address))
+                    continue;
+
+                _regs[address] = values[i];
+                writes.Add(new ExternalRegisterWrite(address, values[i], deviceKey, source));
+            }
+        }
+
+        foreach (var write in writes)
+        {
+            OnRegisterWritten?.Invoke(write.Address, write.Value);
+        }
+
+        if (writes.Count > 0)
+            OnExternalRegistersWritten?.Invoke(writes);
     }
 
     /// <summary>读取连续多个寄存器</summary>
@@ -175,3 +210,5 @@ public class RegisterBank
             throw new ArgumentOutOfRangeException(nameof(address), $"寄存器地址越界: {address}");
     }
 }
+
+public readonly record struct ExternalRegisterWrite(int Address, ushort Value, string? DeviceKey = null, string? Source = null);
