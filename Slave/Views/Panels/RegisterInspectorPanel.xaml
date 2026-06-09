@@ -214,13 +214,24 @@
                                              IsReadOnly="True"
                                              IsHitTestVisible="False"
                                              Focusable="False"
-                                             Foreground="{StaticResource TextPrimaryBrush}"
                                              CaretBrush="#60A5FA"
                                              SelectionBrush="#1D4ED8"
                                              FocusVisualStyle="{x:Null}"
                                              VerticalContentAlignment="Center"
+                                             Text="{Binding Value, Mode=OneWay}"
                                              Loaded="CurrentValueTextBox_Loaded"
-                                             Unloaded="CurrentValueTextBox_Unloaded"/>
+                                             Unloaded="CurrentValueTextBox_Unloaded">
+                                        <TextBox.Style>
+                                            <Style TargetType="TextBox" BasedOn="{StaticResource InlineCellEditTextBoxStyle}">
+                                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsExternallyWritten}" Value="True">
+                                                        <Setter Property="Foreground" Value="#EF4444"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBox.Style>
+                                    </TextBox>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                             <DataGridTemplateColumn.CellEditingTemplate>
@@ -231,7 +242,6 @@
                                              BorderBrush="Transparent"
                                              Padding="2,0"
                                              Margin="0"
-                                             Foreground="{StaticResource TextPrimaryBrush}"
                                              CaretBrush="#60A5FA"
                                              SelectionBrush="#1D4ED8"
                                              FocusVisualStyle="{x:Null}"

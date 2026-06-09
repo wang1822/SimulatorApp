@@ -44,7 +44,10 @@ public partial class RegisterInspectorViewModel : DeviceViewModelBase
     [ObservableProperty] private int _batchCount = 16;
 
     public RegisterInspectorViewModel(RegisterBank bank, RegisterMapService mapService)
-        : base(bank, mapService) { }
+        : base(bank, mapService)
+    {
+        _bank.OnRegisterWritten += OnRegisterWritten;
+    }
 
     // ----------------------------------------------------------------
     // 命令：添加单行
@@ -106,6 +109,24 @@ public partial class RegisterInspectorViewModel : DeviceViewModelBase
     {
         foreach (var row in Rows)
             row.Value = _bank.Read(row.Address);
+    }
+
+    private void OnRegisterWritten(int address, ushort value)
+    {
+        if ((uint)address > MaxRegisterAddress) return;
+
+        void UpdateRow()
+        {
+            var row = Rows.FirstOrDefault(r => r.Address == address);
+            if (row != null && row.Value != value)
+                row.Value = value;
+        }
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+            dispatcher.BeginInvoke((Action)UpdateRow);
+        else
+            UpdateRow();
     }
 
     // ----------------------------------------------------------------

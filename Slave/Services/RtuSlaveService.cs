@@ -30,6 +30,7 @@ public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
     public int      BaudRate  { get; set; } = 9600;
     public byte     FunctionCode { get; set; } = 3;
     public Func<int, bool>? RegisterAddressFilter { get; set; }
+    public string? BoundDeviceKey { get; set; }
     public int      DataBits  { get; set; } = 8;
     public StopBits StopBits  { get; set; } = StopBits.One;
     public Parity   Parity    { get; set; } = Parity.None;
@@ -304,11 +305,16 @@ public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
         if (e.ModbusDataType == ModbusDataType.HoldingRegister)
         {
             var regs = e.Data.B; // ReadOnlyCollection<ushort>
-            for (int i = 0; i < regs.Count; i++)
+            if ((uint)e.StartAddress < 65536)
             {
-                int addr = e.StartAddress + i; // e.StartAddress 是 PDU 地址（0-based），与 bank 地址相同
-                if ((uint)addr < 65536 && (RegisterAddressFilter?.Invoke(addr) ?? true))
-                    _bank.Write(addr, regs[i]);
+                var count = Math.Min(regs.Count, 65536 - e.StartAddress);
+                if (count > 0)
+                    _bank.WriteExternalRange(
+                        e.StartAddress,
+                        regs.Take(count).ToArray(),
+                        RegisterAddressFilter,
+                        BoundDeviceKey,
+                        PortName);
             }
         }
         OnRequest?.Invoke(16, e.StartAddress, e.Data.B.Count, PortName);

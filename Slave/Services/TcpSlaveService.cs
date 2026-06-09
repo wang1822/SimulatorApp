@@ -32,6 +32,7 @@ public class TcpSlaveService : ISlaveService, IRegisterSnapshotSlaveService
     public int    Port          { get; set; } = 502;
     public byte   FunctionCode  { get; set; } = 3;
     public Func<int, bool>? RegisterAddressFilter { get; set; }
+    public string? BoundDeviceKey { get; set; }
 
     public event Action<byte, int, int, string>? OnRequest;
 
@@ -229,11 +230,16 @@ public class TcpSlaveService : ISlaveService, IRegisterSnapshotSlaveService
         if (e.ModbusDataType == ModbusDataType.HoldingRegister)
         {
             var regs = e.Data.B; // ReadOnlyCollection<ushort>
-            for (int i = 0; i < regs.Count; i++)
+            if ((uint)e.StartAddress < 65536)
             {
-                int addr = e.StartAddress + i; // e.StartAddress 是 PDU 地址（0-based），与 bank 地址相同
-                if ((uint)addr < 65536 && (RegisterAddressFilter?.Invoke(addr) ?? true))
-                    _bank.Write(addr, regs[i]);
+                var count = Math.Min(regs.Count, 65536 - e.StartAddress);
+                if (count > 0)
+                    _bank.WriteExternalRange(
+                        e.StartAddress,
+                        regs.Take(count).ToArray(),
+                        RegisterAddressFilter,
+                        BoundDeviceKey,
+                        $"{ListenAddress}:{Port}");
             }
         }
         OnRequest?.Invoke(16, e.StartAddress, e.Data.B.Count, "TCP客户端");

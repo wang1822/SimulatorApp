@@ -465,6 +465,9 @@
                                             <DataTrigger Binding="{Binding CanWriteCurrentValue}" Value="False">
                                                 <Setter Property="Foreground" Value="#64748B"/>
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsExternallyWritten}" Value="True">
+                                                <Setter Property="Foreground" Value="#EF4444"/>
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
@@ -495,6 +498,14 @@
                                                   IsChecked="{Binding IsFloatABCDMode, Mode=OneWay}"
                                                   Click="CurrentValue_DisplayModeMenuItem_Click"
                                                   Tag="float"/>
+                                        <MenuItem Header="Float CD AB"
+                                                  IsChecked="{Binding IsFloatCDABMode, Mode=OneWay}"
+                                                  Click="CurrentValue_DisplayModeMenuItem_Click"
+                                                  Tag="float_cdab"/>
+                                        <MenuItem Header="Double ABCDEFGH"
+                                                  IsChecked="{Binding IsDoubleABCDEFGHMode, Mode=OneWay}"
+                                                  Click="CurrentValue_DisplayModeMenuItem_Click"
+                                                  Tag="double"/>
                                         <Separator/>
                                         <MenuItem Header="复制" Click="CurrentValue_CopyMenuItem_Click"/>
                                     </ContextMenu>

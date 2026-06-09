@@ -1369,12 +1369,9 @@ public partial class RegisterInspectorPanel
             return;
         }
 
-        if (textBox.DataContext is { } draftRowContext &&
-            TryMarkDraftRowCurrentValueDefaulted(draftRowContext))
+        if (textBox.DataContext is { } draftRowContext)
         {
-            InitializeInspectorCurrentValueToZero(vm, address, inspectorRow);
-            SetCurrentValueTextInternal(textBox, "0");
-            return;
+            TryMarkDraftRowCurrentValueDefaulted(draftRowContext);
         }
 
         SetCurrentValueTextInternal(textBox, inspectorRow.Value.ToString());
