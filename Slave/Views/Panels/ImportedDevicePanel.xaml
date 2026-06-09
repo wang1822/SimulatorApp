@@ -490,7 +490,7 @@
                                                   IsChecked="{Binding IsHexMode, Mode=OneWay}"
                                                   Click="CurrentValue_DisplayModeMenuItem_Click"
                                                   Tag="hex"/>
-                                        <MenuItem Header="字符串"
+                                        <MenuItem Header="STRING16"
                                                   IsChecked="{Binding IsStringMode, Mode=OneWay}"
                                                   Click="CurrentValue_DisplayModeMenuItem_Click"
                                                   Tag="str"/>
