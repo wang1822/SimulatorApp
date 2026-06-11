@@ -57,6 +57,7 @@ public partial class SlaveViewModel : ObservableObject
     private readonly Dictionary<int, SlaveDeviceConfig> _importedDeviceConfigByDbId = new();
     private readonly ModbusPacketCaptureViewModel _packetCaptureVm = new();
     private ModbusPacketCaptureWindow? _packetCaptureWindow;
+    private GpioHilWindow?          _gpioHilWindow;
     private int _listenerProfileVersion = 0;
     private bool _suppressSimGuard = false;
     private bool _suppressListenerBindingRefresh = false;
@@ -1517,6 +1518,23 @@ public partial class SlaveViewModel : ObservableObject
 
     [RelayCommand]
     public void ClearLog() => LogEntries.Clear();
+
+    [RelayCommand]
+    public void OpenGpioHil()
+    {
+        if (_gpioHilWindow == null)
+        {
+            _gpioHilWindow = new GpioHilWindow
+            {
+                Owner = Application.Current?.MainWindow,
+                DataContext = new GpioHilViewModel()
+            };
+            _gpioHilWindow.Closed += (_, _) => _gpioHilWindow = null;
+        }
+
+        _gpioHilWindow.Show();
+        _gpioHilWindow.Activate();
+    }
 
     [RelayCommand]
     public void OpenPacketCapture()

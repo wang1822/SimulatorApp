@@ -216,6 +216,10 @@
                                 Command="{Binding OpenExternalWriteLogCommand}"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 ToolTip="打开 BA 下发指令接收窗口"/>
+                        <Button Content="DI仿真" Height="26" Padding="8,0" Margin="0,0,6,0"
+                                Command="{Binding OpenGpioHilCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                ToolTip="打开 DI 仿真窗口"/>
                         <Button Content="清除监听" Height="26" Padding="8,0"
                                 Command="{Binding ClearListenersCommand}"
                                 Style="{StaticResource SecondaryButtonStyle}"

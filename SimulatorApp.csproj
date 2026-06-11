@@ -35,6 +35,8 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
     <!-- .NET 8 需要显式引用串口支持 -->
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <!-- DI仿真 SSH/SCP 连接 Linux 设备 -->
+    <PackageReference Include="SSH.NET" Version="2024.2.0" />
   </ItemGroup>
 
   <ItemGroup>
