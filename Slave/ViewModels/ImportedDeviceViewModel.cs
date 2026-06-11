@@ -19,6 +19,9 @@ namespace SimulatorApp.Slave.ViewModels;
 /// </summary>
 public partial class ImportedDeviceViewModel : DeviceViewModelBase
 {
+    private const int DefaultResponseBlockMaxRegisters = 120;
+    private const int DefaultResponseBlockMaxGap = 16;
+
     // 空模型占位（不写寄存器）
     private sealed class NullModel : DeviceModelBase
     {
@@ -93,6 +96,68 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
 
     [RelayCommand]
     public void ClearSearch() { SearchText = string.Empty; FilteredRows.Refresh(); }
+
+    public IReadOnlyList<ImportedAddressBlock> GetResponseAddressBlocks()
+        => BuildResponseAddressBlocks(DefaultResponseBlockMaxRegisters, DefaultResponseBlockMaxGap);
+
+    public bool ContainsActualAddress(int address)
+        => Rows.Any(r => !r.IsPending && r.Address == address);
+
+    public bool FitsResponseAddressBlock(int startAddress, int count)
+    {
+        if (count <= 0 || (uint)startAddress >= 65536)
+            return false;
+
+        var endAddress = startAddress + count - 1;
+        if (endAddress < startAddress || endAddress > 65535)
+            return false;
+
+        return GetResponseAddressBlocks()
+            .Any(block => startAddress >= block.Start && endAddress <= block.End);
+    }
+
+    private IReadOnlyList<ImportedAddressBlock> BuildResponseAddressBlocks(int maxRegisters, int maxGap)
+    {
+        var addresses = Rows.Where(r => !r.IsPending)
+                            .Select(r => r.Address)
+                            .Distinct()
+                            .OrderBy(a => a)
+                            .ToList();
+        var result = new List<ImportedAddressBlock>();
+        if (addresses.Count == 0)
+            return result;
+
+        var start = addresses[0];
+        var end = addresses[0];
+        var pointCount = 1;
+
+        for (var i = 1; i < addresses.Count; i++)
+        {
+            var address = addresses[i];
+            var gap = address - end - 1;
+            var proposedCount = address - start + 1;
+            if (proposedCount > maxRegisters || gap > maxGap)
+            {
+                result.Add(new ImportedAddressBlock(start, end, pointCount));
+                start = address;
+                pointCount = 1;
+            }
+            else
+            {
+                pointCount++;
+            }
+
+            end = address;
+        }
+
+        result.Add(new ImportedAddressBlock(start, end, pointCount));
+        return result;
+    }
+
+    public sealed record ImportedAddressBlock(int Start, int End, int PointCount)
+    {
+        public int Count => End - Start + 1;
+    }
 
     // ── 随机生成 ───────────────────────────────────────────────────
     [ObservableProperty] private int _minValue = 0;
@@ -613,6 +678,9 @@ public enum RegisterValueDisplayMode { UnsignedDecimal, SignedDecimal, Binary, H
 /// <summary>单条导入寄存器行（支持读写当前值、内联编辑名称）</summary>
 public sealed partial class ImportedRegisterRow : ObservableObject
 {
+    private const int String16RegisterCount = 8;
+    private const int String16ByteCount = String16RegisterCount * 2;
+
     // ── 可编辑元数据 ───────────────────────────────────────────────
     [ObservableProperty] private bool   _isPending;
     [ObservableProperty] private string _addressText = "";
@@ -678,7 +746,7 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         RegisterValueDisplayMode.SignedDecimal => unchecked((short)CurrentValueRaw).ToString(),
         RegisterValueDisplayMode.Binary        => Convert.ToString(CurrentValueRaw, 2).PadLeft(16, '0'),
         RegisterValueDisplayMode.Hexadecimal   => $"0x{CurrentValueRaw:X4}",
-        RegisterValueDisplayMode.String        => FormatRegisterString(CurrentValueRaw),
+        RegisterValueDisplayMode.String        => FormatString16(),
         RegisterValueDisplayMode.FloatABCD     => FormatFloatABCD(),
         RegisterValueDisplayMode.FloatCDAB     => FormatFloatCDAB(),
         RegisterValueDisplayMode.DoubleABCDEFGH => FormatDoubleABCDEFGH(),
@@ -686,12 +754,22 @@ public sealed partial class ImportedRegisterRow : ObservableObject
     };
 
     // ── 写入输入框文本（编辑时绑定）────────────────────────────────
-    private static string FormatRegisterString(ushort value)
+    private string FormatString16()
     {
-        char hi = (char)(value >> 8);
-        char lo = (char)(value & 0xFF);
-        if (lo == '\0') return hi == '\0' ? string.Empty : hi.ToString();
-        return new string(new[] { hi, lo });
+        var bytes = new byte[String16ByteCount];
+        for (var offset = 0; offset < String16RegisterCount; offset++)
+        {
+            var row = offset == 0 ? this : _rowResolver?.Invoke(Address + offset);
+            if (row == null) return string.Empty;
+
+            bytes[offset * 2] = (byte)(row.CurrentValueRaw >> 8);
+            bytes[offset * 2 + 1] = (byte)(row.CurrentValueRaw & 0xFF);
+        }
+
+        return new string(bytes
+            .Where(b => b != 0)
+            .Select(b => b is >= 0x20 and <= 0x7E ? (char)b : '.')
+            .ToArray());
     }
 
     private string FormatFloatABCD()
@@ -759,10 +837,12 @@ public sealed partial class ImportedRegisterRow : ObservableObject
             if (previousMode is RegisterValueDisplayMode.FloatABCD or RegisterValueDisplayMode.FloatCDAB)
                 return true;
 
-            for (var offset = 1; offset <= 3; offset++)
+            for (var offset = 1; offset <= 7; offset++)
             {
                 var row = _rowResolver?.Invoke(Address - offset);
                 if (row?.DisplayMode == RegisterValueDisplayMode.DoubleABCDEFGH)
+                    return true;
+                if (row?.DisplayMode == RegisterValueDisplayMode.String)
                     return true;
             }
 
@@ -771,14 +851,14 @@ public sealed partial class ImportedRegisterRow : ObservableObject
     }
     public bool CanWriteCurrentValue => !IsPending && !IsFloatSecondWord;
     public string CurrentValueToolTip => IsFloatSecondWord
-        ? "上一地址为 Float/Double，本地址作为后续 16 位，禁止单独写入"
+        ? "上一地址为 Float/Double/STRING16，本地址作为后续 16 位，禁止单独写入"
         : "双击编辑写入；右键切换显示模式";
 
     private void NotifyFloatPeerStateChanged()
     {
         OnPropertyChanged(nameof(CanWriteCurrentValue));
         OnPropertyChanged(nameof(CurrentValueToolTip));
-        for (var offset = 1; offset <= 3; offset++)
+        for (var offset = 1; offset <= 7; offset++)
             _rowResolver?.Invoke(Address + offset)?.NotifyFloatSecondWordStateChanged();
     }
 
@@ -875,6 +955,8 @@ public sealed partial class ImportedRegisterRow : ObservableObject
 
         if ((string.Equals(key, "float", StringComparison.Ordinal) || string.Equals(key, "float_cdab", StringComparison.Ordinal)) && _rowResolver?.Invoke(Address + 1) == null)
             return;
+        if (string.Equals(key, "str", StringComparison.Ordinal) && !HasFollowingRows(String16RegisterCount))
+            return;
         if (string.Equals(key, "double", StringComparison.Ordinal)
             && (_rowResolver?.Invoke(Address + 1) == null || _rowResolver?.Invoke(Address + 2) == null || _rowResolver?.Invoke(Address + 3) == null))
             return;
@@ -893,6 +975,7 @@ public sealed partial class ImportedRegisterRow : ObservableObject
 
         var occupiedWordCount = DisplayMode switch
         {
+            RegisterValueDisplayMode.String => String16RegisterCount,
             RegisterValueDisplayMode.FloatABCD or RegisterValueDisplayMode.FloatCDAB => 2,
             RegisterValueDisplayMode.DoubleABCDEFGH => 4,
             _ => 1
@@ -903,6 +986,17 @@ public sealed partial class ImportedRegisterRow : ObservableObject
             if (next != null && next.DisplayMode != RegisterValueDisplayMode.UnsignedDecimal)
                 next.DisplayMode = RegisterValueDisplayMode.UnsignedDecimal;
         }
+    }
+
+    private bool HasFollowingRows(int registerCount)
+    {
+        for (var offset = 1; offset < registerCount; offset++)
+        {
+            if (_rowResolver?.Invoke(Address + offset) == null)
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -964,11 +1058,23 @@ public sealed partial class ImportedRegisterRow : ObservableObject
         }
         if (DisplayMode == RegisterValueDisplayMode.String)
         {
-            if (rawText.Length > 2) return false;
-            if (rawText.Any(c => c > 0xFF)) return false;
-            byte hi = rawText.Length > 0 ? (byte)rawText[0] : (byte)0;
-            byte lo = rawText.Length > 1 ? (byte)rawText[1] : (byte)0;
-            val = (ushort)((hi << 8) | lo);
+            if (rawText.Length > String16ByteCount) return false;
+            if (rawText.Any(c => c > 0x7F)) return false;
+            if (!HasFollowingRows(String16RegisterCount)) return false;
+
+            var bytes = new byte[String16ByteCount];
+            for (var i = 0; i < rawText.Length; i++)
+                bytes[i] = (byte)rawText[i];
+
+            for (var offset = 0; offset < String16RegisterCount; offset++)
+            {
+                var row = offset == 0 ? this : _rowResolver?.Invoke(Address + offset);
+                if (row == null) return false;
+
+                row.WriteValue((ushort)((bytes[offset * 2] << 8) | bytes[offset * 2 + 1]));
+            }
+
+            return true;
         }
         else if (string.IsNullOrEmpty(text)) return false;
         else

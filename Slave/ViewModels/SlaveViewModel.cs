@@ -57,6 +57,7 @@ public partial class SlaveViewModel : ObservableObject
     private readonly Dictionary<int, SlaveDeviceConfig> _importedDeviceConfigByDbId = new();
     private readonly ModbusPacketCaptureViewModel _packetCaptureVm = new();
     private ModbusPacketCaptureWindow? _packetCaptureWindow;
+    private GpioHilWindow?          _gpioHilWindow;
     private int _listenerProfileVersion = 0;
     private bool _suppressSimGuard = false;
     private bool _suppressListenerBindingRefresh = false;
@@ -832,6 +833,7 @@ public partial class SlaveViewModel : ObservableObject
                 tcpSvc.Port          = config.Port;
                 tcpSvc.FunctionCode  = NormalizeListenerFunctionCode(config.FunctionCode);
                 tcpSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
+                tcpSvc.RegisterRangeFilter = (start, count) => ListenerAllowsRequestRange(config, start, count);
                 tcpSvc.BoundDeviceKey = config.BoundDeviceKey;
                 svc = tcpSvc;
             }
@@ -842,6 +844,7 @@ public partial class SlaveViewModel : ObservableObject
                 rtuSvc.BaudRate  = config.BaudRate;
                 rtuSvc.FunctionCode = NormalizeListenerFunctionCode(config.FunctionCode);
                 rtuSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
+                rtuSvc.RegisterRangeFilter = (start, count) => ListenerAllowsRequestRange(config, start, count);
                 rtuSvc.BoundDeviceKey = config.BoundDeviceKey;
                 svc = rtuSvc;
             }
@@ -1517,6 +1520,23 @@ public partial class SlaveViewModel : ObservableObject
     public void ClearLog() => LogEntries.Clear();
 
     [RelayCommand]
+    public void OpenGpioHil()
+    {
+        if (_gpioHilWindow == null)
+        {
+            _gpioHilWindow = new GpioHilWindow
+            {
+                Owner = Application.Current?.MainWindow,
+                DataContext = new GpioHilViewModel()
+            };
+            _gpioHilWindow.Closed += (_, _) => _gpioHilWindow = null;
+        }
+
+        _gpioHilWindow.Show();
+        _gpioHilWindow.Activate();
+    }
+
+    [RelayCommand]
     public void OpenPacketCapture()
     {
         if (!IsRunning)
@@ -1863,7 +1883,7 @@ public partial class SlaveViewModel : ObservableObject
 
         foreach (var vm in GetActiveDevicesForListener(listener))
         {
-            if (!DeviceMatchesRequest(vm, requestStart, requestEnd))
+            if (!DeviceMatchesRequest(vm, requestStart, requestEnd, qty))
                 continue;
 
             var key = BuildDeviceActivityKey(listener, vm);
@@ -1892,7 +1912,7 @@ public partial class SlaveViewModel : ObservableObject
         if (activeDevices.Count == 0)
             return inspectorMatch;
 
-        return inspectorMatch || activeDevices.Any(vm => DeviceMatchesRequest(vm, requestStart, requestEnd));
+        return inspectorMatch || activeDevices.Any(vm => DeviceMatchesRequest(vm, requestStart, requestEnd, qty));
     }
 
     private bool ListenerContainsAddress(SlaveListenerConfig listener, int address)
@@ -1904,8 +1924,24 @@ public partial class SlaveViewModel : ObservableObject
         }
 
         return GetActiveDevicesForListener(listener)
-            .Any(vm => DeviceMatchesRequest(vm, address, address));
+            .Any(vm => DeviceContainsActualAddress(vm, address));
     }
+
+    private bool ListenerAllowsRequestRange(SlaveListenerConfig listener, int startAddress, int count)
+    {
+        var endAddress = count <= 0 ? startAddress : startAddress + count - 1;
+        if (endAddress < startAddress) endAddress = startAddress;
+
+        if (IsInspectorSession(listener))
+        {
+            return SelectedDevice is RegisterInspectorViewModel inspectorVm
+                   && InspectorMatchesRequest(inspectorVm, startAddress, endAddress);
+        }
+
+        return GetActiveDevicesForListener(listener)
+            .Any(vm => DeviceAllowsRequestRange(vm, startAddress, count));
+    }
+
     private static bool InspectorMatchesRequest(RegisterInspectorViewModel inspectorVm, int requestStart, int requestEnd)
     {
         try
@@ -1918,14 +1954,28 @@ public partial class SlaveViewModel : ObservableObject
         }
     }
 
-    private static bool DeviceMatchesRequest(DeviceViewModelBase vm, int requestStart, int requestEnd)
+    private static bool DeviceContainsActualAddress(DeviceViewModelBase vm, int address)
     {
         if (vm is ImportedDeviceViewModel imported)
-        {
-            return imported.Rows
-                .Where(r => !r.IsPending)
-                .Any(r => r.Address >= requestStart && r.Address <= requestEnd);
-        }
+            return imported.ContainsActualAddress(address);
+
+        return DeviceMatchesRequest(vm, address, address, 1);
+    }
+
+    private static bool DeviceAllowsRequestRange(DeviceViewModelBase vm, int requestStart, int qty)
+    {
+        if (vm is ImportedDeviceViewModel imported)
+            return imported.FitsResponseAddressBlock(requestStart, qty);
+
+        var requestEnd = qty <= 0 ? requestStart : requestStart + qty - 1;
+        if (requestEnd < requestStart) requestEnd = requestStart;
+        return DeviceMatchesRequest(vm, requestStart, requestEnd, qty);
+    }
+
+    private static bool DeviceMatchesRequest(DeviceViewModelBase vm, int requestStart, int requestEnd, int qty)
+    {
+        if (vm is ImportedDeviceViewModel imported)
+            return imported.FitsResponseAddressBlock(requestStart, qty);
 
         // 内置设备通过反射取内部 Model.BaseAddress，再按窗口匹配。
         // 失败时按不命中处理，避免未勾选设备被误算为命中。
@@ -1999,8 +2049,16 @@ public partial class SlaveViewModel : ObservableObject
     {
         if (vm is ImportedDeviceViewModel imported)
         {
-            foreach (var row in imported.Rows.Where(r => !r.IsPending))
-                yield return new KeyValuePair<int, ushort>(row.Address, row.CurrentValueRaw);
+            var rowValues = imported.Rows
+                .Where(r => !r.IsPending)
+                .GroupBy(r => r.Address)
+                .ToDictionary(g => g.Key, g => g.Last().CurrentValueRaw);
+
+            foreach (var block in imported.GetResponseAddressBlocks())
+            {
+                for (var address = block.Start; address <= block.End; address++)
+                    yield return new KeyValuePair<int, ushort>(address, rowValues.TryGetValue(address, out var value) ? value : (ushort)0);
+            }
             yield break;
         }
 

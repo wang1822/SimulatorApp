@@ -1,0 +1,230 @@
+<Window x:Class="SimulatorApp.Slave.Views.GpioHilWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DI仿真"
+        Width="780"
+        Height="560"
+        MinWidth="680"
+        MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        Background="#0F172A"
+        Foreground="#E5E7EB">
+    <Border BorderBrush="#334155" BorderThickness="1" Background="#0F172A">
+        <Grid Margin="14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                <TextBlock Text="DI仿真"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="#F8FAFC"/>
+                <Border Margin="0,8,0,0"
+                        Padding="10"
+                        Background="#451A03"
+                        BorderBrush="#F59E0B"
+                        BorderThickness="1"
+                        CornerRadius="3">
+                    <TextBlock Text="提示：此功能仅用于模拟测试，不能用于生产；使用完请清除并重启系统。"
+                               Foreground="#FFFDC98A"
+                               TextWrapping="Wrap"/>
+                </Border>
+            </StackPanel>
+
+            <Grid Grid.Row="1" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="58"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="92"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="IP" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}"
+                         Height="26" Background="#020617" Foreground="#E5E7EB" BorderBrush="#334155"/>
+
+                <TextBlock Grid.Column="2" Text="端口" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                <TextBox Grid.Column="3" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}"
+                         Height="26" Background="#020617" Foreground="#E5E7EB" BorderBrush="#334155"/>
+
+                <TextBlock Grid.Column="4" Text="账号" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                <TextBox Grid.Column="5" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                         Height="26" Background="#020617" Foreground="#E5E7EB" BorderBrush="#334155"/>
+
+                <TextBlock Grid.Column="6" Text="密码" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                <PasswordBox Grid.Column="7" x:Name="PasswordBox"
+                             Height="26"
+                             PasswordChanged="PasswordBox_PasswordChanged"
+                             Background="#020617"
+                             Foreground="#E5E7EB"
+                             BorderBrush="#334155"/>
+
+                <WrapPanel Grid.Column="8" HorizontalAlignment="Right">
+                    <Button Content="连接"
+                            MinWidth="64"
+                            Height="26"
+                            Margin="6,0,0,0"
+                            Command="{Binding ConnectCommand}"
+                            Background="#2563EB"
+                            Foreground="White"
+                            BorderBrush="#3B82F6"/>
+                </WrapPanel>
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="主程序启动脚本路径"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
+                <TextBox Grid.Column="1"
+                         Text="{Binding StartupScriptPath, UpdateSourceTrigger=PropertyChanged}"
+                         Height="26"
+                         Background="#020617"
+                         Foreground="#E5E7EB"
+                         BorderBrush="#334155"/>
+            </Grid>
+
+            <DataGrid Grid.Row="3"
+                      ItemsSource="{Binding Points}"
+                      IsEnabled="{Binding IsConnected}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="True"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      RowHeaderWidth="0"
+                      Background="#020617"
+                      Foreground="#E5E7EB"
+                      BorderBrush="#334155"
+                      HorizontalGridLinesBrush="#1E293B"
+                      VerticalGridLinesBrush="#1E293B">
+                <DataGrid.Resources>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#1E293B"/>
+                        <Setter Property="Foreground" Value="#E5E7EB"/>
+                        <Setter Property="BorderBrush" Value="#334155"/>
+                        <Setter Property="Padding" Value="8,6"/>
+                    </Style>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Background" Value="#020617"/>
+                        <Setter Property="Foreground" Value="#E5E7EB"/>
+                        <Setter Property="BorderBrush" Value="#1E293B"/>
+                    </Style>
+                    <Style TargetType="TextBox">
+                        <Setter Property="Background" Value="#020617"/>
+                        <Setter Property="Foreground" Value="#E5E7EB"/>
+                        <Setter Property="BorderBrush" Value="#334155"/>
+                    </Style>
+                    <Style x:Key="AutoWriteCellTextBoxStyle" TargetType="TextBox">
+                        <Setter Property="Background" Value="#020617"/>
+                        <Setter Property="Foreground" Value="#E5E7EB"/>
+                        <Setter Property="BorderBrush" Value="#334155"/>
+                        <EventSetter Event="LostFocus" Handler="AutoWriteTextBox_LostFocus"/>
+                    </Style>
+                </DataGrid.Resources>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="位置"
+                                        Binding="{Binding Position, UpdateSourceTrigger=PropertyChanged}"
+                                        EditingElementStyle="{StaticResource AutoWriteCellTextBoxStyle}"
+                                        Width="*"/>
+                    <DataGridTextColumn Header="当前值"
+                                        Binding="{Binding CurrentValue, UpdateSourceTrigger=PropertyChanged}"
+                                        EditingElementStyle="{StaticResource AutoWriteCellTextBoxStyle}"
+                                        Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <Grid Grid.Row="4" Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusText}"
+                           VerticalAlignment="Center"
+                           Foreground="#CBD5E1"
+                           TextWrapping="Wrap"/>
+
+                <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
+                    <Button Content="安装/修复"
+                            MinWidth="82"
+                            Height="28"
+                            Margin="6,0,0,0"
+                            Command="{Binding InstallOrRepairCommand}"
+                            IsEnabled="{Binding IsConnected}"
+                            Background="#1E293B"
+                            Foreground="#E5E7EB"
+                            BorderBrush="#475569"/>
+                    <Button Content="清除脚本"
+                            MinWidth="82"
+                            Height="28"
+                            Margin="6,0,0,0"
+                            Command="{Binding ClearScriptCommand}"
+                            IsEnabled="{Binding IsConnected}"
+                            Background="#1E293B"
+                            Foreground="#E5E7EB"
+                            BorderBrush="#475569"/>
+                    <Button Content="重启系统"
+                            MinWidth="96"
+                            Height="28"
+                            Margin="6,0,0,0"
+                            Command="{Binding RestartLinuxCommand}"
+                            IsEnabled="{Binding IsConnected}"
+                            Background="#7C2D12"
+                            Foreground="#FFEDD5"
+                            BorderBrush="#EA580C"/>
+                    <Button Content="读取"
+                            MinWidth="64"
+                            Height="28"
+                            Margin="6,0,0,0"
+                            Command="{Binding ReadValuesCommand}"
+                            IsEnabled="{Binding IsConnected}"
+                            Background="#1E293B"
+                            Foreground="#E5E7EB"
+                            BorderBrush="#475569"/>
+                    <Button Content="全0"
+                            MinWidth="64"
+                            Height="28"
+                            Margin="6,0,0,0"
+                            Command="{Binding WriteAllZeroCommand}"
+                            IsEnabled="{Binding IsConnected}"
+                            Background="#1E293B"
+                            Foreground="#E5E7EB"
+                            BorderBrush="#475569"/>
+                    <Button Content="全1"
+                            MinWidth="64"
+                            Height="28"
+                            Margin="6,0,0,0"
+                            Command="{Binding WriteAllOneCommand}"
+                            IsEnabled="{Binding IsConnected}"
+                            Background="#1E293B"
+                            Foreground="#E5E7EB"
+                            BorderBrush="#475569"/>
+                    <Button Content="关闭"
+                            MinWidth="64"
+                            Height="28"
+                            Margin="6,0,0,0"
+                            Click="CloseButton_Click"
+                            Background="#2563EB"
+                            Foreground="White"
+                            BorderBrush="#3B82F6"/>
+                </WrapPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
