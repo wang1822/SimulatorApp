@@ -32,7 +32,6 @@ public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
     public int      BaudRate  { get; set; } = 9600;
     public byte     FunctionCode { get; set; } = 3;
     public Func<int, bool>? RegisterAddressFilter { get; set; }
-    public Func<int, int, bool>? RegisterRangeFilter { get; set; }
     public string? BoundDeviceKey { get; set; }
     public int      DataBits  { get; set; } = 8;
     public StopBits StopBits  { get; set; } = StopBits.One;
@@ -307,12 +306,6 @@ public class RtuSlaveService : ISlaveService, IRegisterSnapshotSlaveService
             _ => 3
         };
         int count = functionCode is 3 or 4 ? e.Data.B.Count : e.Data.A.Count;
-        if (!(RegisterRangeFilter?.Invoke(e.StartAddress, count) ?? true))
-        {
-            AppLogger.Warn($"RTU 从站请求跨自动地址块，已忽略设备命中统计：{PortName} FC={functionCode} Start={e.StartAddress} Count={count}");
-            return;
-        }
-
         OnRequest?.Invoke(functionCode, e.StartAddress, count, PortName);
     }
 

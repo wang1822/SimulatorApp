@@ -32,7 +32,6 @@ public class TcpSlaveService : ISlaveService, IRegisterSnapshotSlaveService
     public int    Port          { get; set; } = 502;
     public byte   FunctionCode  { get; set; } = 3;
     public Func<int, bool>? RegisterAddressFilter { get; set; }
-    public Func<int, int, bool>? RegisterRangeFilter { get; set; }
     public string? BoundDeviceKey { get; set; }
 
     public event Action<byte, int, int, string>? OnRequest;
@@ -223,12 +222,6 @@ public class TcpSlaveService : ISlaveService, IRegisterSnapshotSlaveService
             _ => 3
         };
         int count = functionCode is 3 or 4 ? e.Data.B.Count : e.Data.A.Count;
-        if (!(RegisterRangeFilter?.Invoke(e.StartAddress, count) ?? true))
-        {
-            AppLogger.Warn($"TCP 从站请求跨自动地址块，已忽略设备命中统计：{ListenAddress}:{Port} FC={functionCode} Start={e.StartAddress} Count={count}");
-            return;
-        }
-
         OnRequest?.Invoke(functionCode, e.StartAddress, count, $"{ListenAddress}:{Port}");
     }
 

@@ -833,7 +833,6 @@ public partial class SlaveViewModel : ObservableObject
                 tcpSvc.Port          = config.Port;
                 tcpSvc.FunctionCode  = NormalizeListenerFunctionCode(config.FunctionCode);
                 tcpSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
-                tcpSvc.RegisterRangeFilter = (start, count) => ListenerAllowsRequestRange(config, start, count);
                 tcpSvc.BoundDeviceKey = config.BoundDeviceKey;
                 svc = tcpSvc;
             }
@@ -844,7 +843,6 @@ public partial class SlaveViewModel : ObservableObject
                 rtuSvc.BaudRate  = config.BaudRate;
                 rtuSvc.FunctionCode = NormalizeListenerFunctionCode(config.FunctionCode);
                 rtuSvc.RegisterAddressFilter = address => ListenerContainsAddress(config, address);
-                rtuSvc.RegisterRangeFilter = (start, count) => ListenerAllowsRequestRange(config, start, count);
                 rtuSvc.BoundDeviceKey = config.BoundDeviceKey;
                 svc = rtuSvc;
             }
@@ -1579,9 +1577,6 @@ public partial class SlaveViewModel : ObservableObject
                 : listener.ComPort)
             : source;
 
-        if (!RequestMatchesActiveDevice(listener, addr, qty))
-            return;
-
         if (!IsWriteFunctionCode(fc))
             PushListenerSnapshot(listener);
         RequestCount++;
@@ -1883,9 +1878,6 @@ public partial class SlaveViewModel : ObservableObject
 
         foreach (var vm in GetActiveDevicesForListener(listener))
         {
-            if (!DeviceMatchesRequest(vm, requestStart, requestEnd, qty))
-                continue;
-
             var key = BuildDeviceActivityKey(listener, vm);
             _deviceLastRequestAt[key] = nowUtc;
         }
@@ -1893,27 +1885,6 @@ public partial class SlaveViewModel : ObservableObject
 
     private static string BuildDeviceActivityKey(SlaveListenerConfig listener, DeviceViewModelBase vm)
         => $"{RuntimeHelpers.GetHashCode(listener)}|{RuntimeHelpers.GetHashCode(vm)}";
-
-    private bool RequestMatchesActiveDevice(SlaveListenerConfig listener, int addr, int qty)
-    {
-        int requestStart = addr;
-        int requestEnd = qty <= 0 ? addr : addr + qty - 1;
-        if (requestEnd < requestStart) requestEnd = requestStart;
-
-        bool inspectorMatch = IsInspectorBypassEnabled()
-            && SelectedDevice is RegisterInspectorViewModel inspectorVm
-            && InspectorMatchesRequest(inspectorVm, requestStart, requestEnd);
-
-        // 寄存器检视模式下仅按检视地址命中，避免未勾选协议参与。
-        if (IsInspectorSession(listener))
-            return inspectorMatch;
-
-        var activeDevices = GetActiveDevicesForListener(listener);
-        if (activeDevices.Count == 0)
-            return inspectorMatch;
-
-        return inspectorMatch || activeDevices.Any(vm => DeviceMatchesRequest(vm, requestStart, requestEnd, qty));
-    }
 
     private bool ListenerContainsAddress(SlaveListenerConfig listener, int address)
     {
@@ -1925,21 +1896,6 @@ public partial class SlaveViewModel : ObservableObject
 
         return GetActiveDevicesForListener(listener)
             .Any(vm => DeviceContainsActualAddress(vm, address));
-    }
-
-    private bool ListenerAllowsRequestRange(SlaveListenerConfig listener, int startAddress, int count)
-    {
-        var endAddress = count <= 0 ? startAddress : startAddress + count - 1;
-        if (endAddress < startAddress) endAddress = startAddress;
-
-        if (IsInspectorSession(listener))
-        {
-            return SelectedDevice is RegisterInspectorViewModel inspectorVm
-                   && InspectorMatchesRequest(inspectorVm, startAddress, endAddress);
-        }
-
-        return GetActiveDevicesForListener(listener)
-            .Any(vm => DeviceAllowsRequestRange(vm, startAddress, count));
     }
 
     private static bool InspectorMatchesRequest(RegisterInspectorViewModel inspectorVm, int requestStart, int requestEnd)
@@ -1962,20 +1918,10 @@ public partial class SlaveViewModel : ObservableObject
         return DeviceMatchesRequest(vm, address, address, 1);
     }
 
-    private static bool DeviceAllowsRequestRange(DeviceViewModelBase vm, int requestStart, int qty)
-    {
-        if (vm is ImportedDeviceViewModel imported)
-            return imported.FitsResponseAddressBlock(requestStart, qty);
-
-        var requestEnd = qty <= 0 ? requestStart : requestStart + qty - 1;
-        if (requestEnd < requestStart) requestEnd = requestStart;
-        return DeviceMatchesRequest(vm, requestStart, requestEnd, qty);
-    }
-
     private static bool DeviceMatchesRequest(DeviceViewModelBase vm, int requestStart, int requestEnd, int qty)
     {
         if (vm is ImportedDeviceViewModel imported)
-            return imported.FitsResponseAddressBlock(requestStart, qty);
+            return requestEnd >= requestStart && imported.Rows.Any(r => !r.IsPending && r.Address >= requestStart && r.Address <= requestEnd);
 
         // 内置设备通过反射取内部 Model.BaseAddress，再按窗口匹配。
         // 失败时按不命中处理，避免未勾选设备被误算为命中。
@@ -2054,11 +2000,13 @@ public partial class SlaveViewModel : ObservableObject
                 .GroupBy(r => r.Address)
                 .ToDictionary(g => g.Key, g => g.Last().CurrentValueRaw);
 
-            foreach (var block in imported.GetResponseAddressBlocks())
-            {
-                for (var address = block.Start; address <= block.End; address++)
-                    yield return new KeyValuePair<int, ushort>(address, rowValues.TryGetValue(address, out var value) ? value : (ushort)0);
-            }
+            if (rowValues.Count == 0)
+                yield break;
+
+            var rangeStart = rowValues.Keys.Min();
+            var rangeEnd = rowValues.Keys.Max();
+            for (var address = rangeStart; address <= rangeEnd; address++)
+                yield return new KeyValuePair<int, ushort>(address, rowValues.TryGetValue(address, out var value) ? value : (ushort)0);
             yield break;
         }
 

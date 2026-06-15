@@ -19,9 +19,6 @@ namespace SimulatorApp.Slave.ViewModels;
 /// </summary>
 public partial class ImportedDeviceViewModel : DeviceViewModelBase
 {
-    private const int DefaultResponseBlockMaxRegisters = 120;
-    private const int DefaultResponseBlockMaxGap = 16;
-
     // 空模型占位（不写寄存器）
     private sealed class NullModel : DeviceModelBase
     {
@@ -97,67 +94,8 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
     [RelayCommand]
     public void ClearSearch() { SearchText = string.Empty; FilteredRows.Refresh(); }
 
-    public IReadOnlyList<ImportedAddressBlock> GetResponseAddressBlocks()
-        => BuildResponseAddressBlocks(DefaultResponseBlockMaxRegisters, DefaultResponseBlockMaxGap);
-
     public bool ContainsActualAddress(int address)
         => Rows.Any(r => !r.IsPending && r.Address == address);
-
-    public bool FitsResponseAddressBlock(int startAddress, int count)
-    {
-        if (count <= 0 || (uint)startAddress >= 65536)
-            return false;
-
-        var endAddress = startAddress + count - 1;
-        if (endAddress < startAddress || endAddress > 65535)
-            return false;
-
-        return GetResponseAddressBlocks()
-            .Any(block => startAddress >= block.Start && endAddress <= block.End);
-    }
-
-    private IReadOnlyList<ImportedAddressBlock> BuildResponseAddressBlocks(int maxRegisters, int maxGap)
-    {
-        var addresses = Rows.Where(r => !r.IsPending)
-                            .Select(r => r.Address)
-                            .Distinct()
-                            .OrderBy(a => a)
-                            .ToList();
-        var result = new List<ImportedAddressBlock>();
-        if (addresses.Count == 0)
-            return result;
-
-        var start = addresses[0];
-        var end = addresses[0];
-        var pointCount = 1;
-
-        for (var i = 1; i < addresses.Count; i++)
-        {
-            var address = addresses[i];
-            var gap = address - end - 1;
-            var proposedCount = address - start + 1;
-            if (proposedCount > maxRegisters || gap > maxGap)
-            {
-                result.Add(new ImportedAddressBlock(start, end, pointCount));
-                start = address;
-                pointCount = 1;
-            }
-            else
-            {
-                pointCount++;
-            }
-
-            end = address;
-        }
-
-        result.Add(new ImportedAddressBlock(start, end, pointCount));
-        return result;
-    }
-
-    public sealed record ImportedAddressBlock(int Start, int End, int PointCount)
-    {
-        public int Count => End - Start + 1;
-    }
 
     // ── 随机生成 ───────────────────────────────────────────────────
     [ObservableProperty] private int _minValue = 0;
