@@ -164,12 +164,6 @@ public partial class SlaveViewModel : ObservableObject
     public IReadOnlyList<int>           BaudRateOptions       { get; } = [4800, 9600, 19200, 38400, 115200];
 
     // ----------------------------------------------------------------
-    // 日志
-    // ----------------------------------------------------------------
-
-    public ObservableCollection<LogEntry> LogEntries { get; } = new();
-
-    // ----------------------------------------------------------------
     // 构造
     // ----------------------------------------------------------------
 
@@ -235,15 +229,6 @@ public partial class SlaveViewModel : ObservableObject
         RefreshTcpAddresses();
         RefreshComPorts();
 
-        AppLogger.OnUiLog += (level, message) =>
-        {
-            var logLevel = level switch { "WARN" => LogLevel.Warn, "ERROR" => LogLevel.Error, _ => LogLevel.Info };
-            Application.Current?.Dispatcher.InvokeAsync(() =>
-            {
-                if (LogEntries.Count >= 500) LogEntries.RemoveAt(0);
-                LogEntries.Add(LogEntry.Create(logLevel, message));
-            });
-        };
 
         AddListenerCommand = new RelayCommand(AddListener);
         ListenerEnvironments.CollectionChanged += (_, _) =>
@@ -1511,11 +1496,6 @@ public partial class SlaveViewModel : ObservableObject
     }
 
     // ----------------------------------------------------------------
-    // 命令：清空日志
-    // ----------------------------------------------------------------
-
-    [RelayCommand]
-    public void ClearLog() => LogEntries.Clear();
 
     [RelayCommand]
     public void OpenGpioHil()

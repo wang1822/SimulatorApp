@@ -214,31 +214,10 @@ public partial class ImportedDeviceViewModel : DeviceViewModelBase
         _randomGenerateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _randomGenerateTimer.Tick += (_, _) => GenerateRandomOnce();
         PropertyChanged += ImportedDeviceViewModel_PropertyChanged;
-        _bank.OnRegisterWritten += OnRegisterWritten;
+        // _bank.OnRegisterWritten += OnRegisterWritten; // 移除以避免跨设备值污染。外部Modbus写入通过SlaveViewModel.OnExternalRegistersWritten单独处理
 
         FilteredRows = CollectionViewSource.GetDefaultView(Rows);
         FilteredRows.Filter = FilterRow;
-    }
-
-    private void OnRegisterWritten(int address, ushort value)
-    {
-        var row = Rows.FirstOrDefault(r => !r.IsPending && r.Address == address);
-        if (row is null)
-            return;
-
-        void UpdateRow()
-        {
-            if (row.CurrentValueRaw == value)
-                return;
-
-            row.ApplyExternalValue(value);
-        }
-
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher != null && !dispatcher.CheckAccess())
-            dispatcher.BeginInvoke((Action)UpdateRow);
-        else
-            UpdateRow();
     }
 
     /// <summary>工厂：统一创建行并注入三个 DB 回调</summary>

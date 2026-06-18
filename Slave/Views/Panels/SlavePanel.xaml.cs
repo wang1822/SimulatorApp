@@ -24,8 +24,6 @@ public partial class SlavePanel : UserControl
     private bool _isSyncingDeviceSelections;
     private SlaveViewModel? _diagnosticVm;
     private bool _listenerDiagnosticsAttached;
-    private SlaveViewModel? _logVm;
-    private bool _logEntriesAttached;
 
     public SlavePanel()
     {
@@ -45,7 +43,6 @@ public partial class SlavePanel : UserControl
             return;
 
         EnsureListenerDiagnosticsAttached(vm);
-        EnsureLogAutoScrollAttached(vm);
 
         if (_dbAutoRefreshedOnce)
             return;
@@ -65,7 +62,6 @@ public partial class SlavePanel : UserControl
     private void UserControl_Unloaded(object sender, RoutedEventArgs e)
     {
         DetachListenerDiagnostics();
-        DetachLogAutoScroll();
         // Keep listeners managed by ViewModel lifecycle.
     }
 
@@ -564,52 +560,6 @@ public partial class SlavePanel : UserControl
         }
     }
 
-    private void EnsureLogAutoScrollAttached(SlaveViewModel vm)
-    {
-        if (_logEntriesAttached && ReferenceEquals(_logVm, vm))
-            return;
-
-        DetachLogAutoScroll();
-
-        _logVm = vm;
-        _logVm.LogEntries.CollectionChanged += LogEntries_CollectionChanged;
-        _logEntriesAttached = true;
-        ScrollLogToEndAsync();
-    }
-
-    private void DetachLogAutoScroll()
-    {
-        if (!_logEntriesAttached || _logVm == null)
-            return;
-
-        _logVm.LogEntries.CollectionChanged -= LogEntries_CollectionChanged;
-        _logVm = null;
-        _logEntriesAttached = false;
-    }
-
-    private void LogEntries_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.Action is NotifyCollectionChangedAction.Add
-            or NotifyCollectionChangedAction.Reset
-            or NotifyCollectionChangedAction.Replace
-            or NotifyCollectionChangedAction.Move)
-        {
-            ScrollLogToEndAsync();
-        }
-    }
-
-    private void ScrollLogToEndAsync()
-    {
-        if (!Dispatcher.CheckAccess())
-        {
-            Dispatcher.BeginInvoke((Action)ScrollLogToEndAsync, DispatcherPriority.Background);
-            return;
-        }
-
-        Dispatcher.BeginInvoke(
-            (Action)(() => LogScrollViewer?.ScrollToEnd()),
-            DispatcherPriority.Background);
-    }
 
     private static void SetSelectedDeviceWithoutProfileSwitch(SlaveViewModel vm, DeviceViewModelBase selectedVm)
     {

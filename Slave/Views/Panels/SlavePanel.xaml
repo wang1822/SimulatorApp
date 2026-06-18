@@ -158,8 +158,6 @@
             <RowDefinition Height="Auto"/>
             <!-- 中间内容区（左侧设备列表 + 右侧设备面板） -->
             <RowDefinition Height="*"/>
-            <!-- 底部日志区 -->
-            <RowDefinition Height="112"/>
         </Grid.RowDefinitions>
 
         <!-- ===== 顶部：监听配置列表 ===== -->
@@ -565,59 +563,5 @@
                             VerticalContentAlignment="Stretch"/>
         </Grid>
 
-        <!-- ===== 底部日志区 ===== -->
-        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
-            <DockPanel>
-                <!-- 日志标题栏 -->
-                <Border DockPanel.Dock="Top" Padding="12,4"
-                        Background="#13192D"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
-                    <DockPanel>
-                        <TextBlock Text="运行日志" Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <Button DockPanel.Dock="Right" Content="清空" Width="50" Height="22"
-                                Command="{Binding ClearLogCommand}"
-                                Style="{StaticResource SecondaryButtonStyle}"
-                                FontSize="11" Padding="4,0"/>
-                    </DockPanel>
-                </Border>
-
-                <!-- 日志内容 -->
-                <ScrollViewer x:Name="LogScrollViewer"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding LogEntries}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding DisplayText}"
-                                           FontFamily="Consolas, Courier New"
-                                           FontSize="11"
-                                           Height="16"
-                                           Padding="12,1"
-                                           Foreground="{Binding Level, Converter={StaticResource BoolToColor}}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Level}" Value="WARN">
-                                                    <Setter Property="Foreground" Value="#F97316"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Level}" Value="ERROR">
-                                                    <Setter Property="Foreground" Value="#EF4444"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Level}" Value="INFO">
-                                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
     </Grid>
 </UserControl>
